@@ -71,3 +71,103 @@ export default defineConfig([
   },
 ])
 ```
+
+## Mock Data Setup
+
+To run the application with mock data, ensure your `.env` file has `VITE_USE_MOCK=true`.
+
+The mock data files are located in `src/mocks/` and are excluded from version control. You need to create them manually.
+
+### Required Files
+
+1.  `src/mocks/mockItems.json`: Contains an array of `MeliItem` objects.
+2.  `src/mocks/mockRules.json`: Contains an array of `StockRuleGroup` objects.
+
+### Data Structures
+
+**MeliItem**
+```json
+{
+  "id": "MLA123456",
+  "title": "Product Title",
+  "thumbnail": "http://http2.mlstatic.com/D_123456-MLA123456_122020-I.jpg",
+  "logistic_type": "fulfillment",
+  "sku": "SKU-123",
+  "price": 100,
+  "variations": [
+    {
+      "id": 123456789,
+      "user_product_id": "MLAU123456",
+      "attribute_combinations": [],
+      "sku": "SKU-123-VAR"
+    }
+  ]
+}
+```
+
+**StockRuleGroup**
+```json
+{
+  "motherItemId": "MLA123456",
+  "motherSku": "SKU-123",
+  "rules": [
+    {
+      "motherUserProductId": "MLAU123456",
+      "childUserProductId": "MLAU987654",
+      "type": "FULL",
+      "packQuantity": 1,
+      "motherItemId": "MLA123456",
+      "childItemId": "MLA987654",
+      "active": true,
+      "childSku": "SKU-CHILD",
+      "childTitle": "Child Product Title"
+    }
+  ]
+}
+```
+
+### Generating Mock Data with AI
+
+You can use the following prompt to ask an AI (like ChatGPT, Claude, or Gemini) to generate sample data for you:
+
+> Please generate two JSON files for a mock data layer in a TypeScript application.
+>
+> **File 1: `mockItems.json`**
+> Generate an array of 10 objects matching this TypeScript interface:
+> ```typescript
+> interface MeliItem {
+>   id: string; // e.g., "MLA" followed by digits
+>   title: string;
+>   thumbnail: string; // placeholder URL
+>   logistic_type: string; // e.g., "fulfillment", "cross_docking", "self_service"
+>   sku: string;
+>   price: number;
+>   variations: {
+>     id: string | number;
+>     user_product_id: string;
+>     attribute_combinations: any[];
+>     sku: string;
+>   }[];
+> }
+> ```
+>
+> **File 2: `mockRules.json`**
+> Generate an array of 5 objects matching this TypeScript interface. Ensure the `motherItemId` and `motherSku` correspond to items generated in `mockItems.json`.
+> ```typescript
+> interface StockRuleGroup {
+>   motherItemId: string;
+>   motherSku: string;
+>   rules: {
+>     motherUserProductId: string;
+>     childUserProductId: string;
+>     type: 'FULL' | 'PACK';
+>     packQuantity: number;
+>     motherItemId: string;
+>     childItemId: string;
+>     active: boolean;
+>     childSku?: string;
+>     childTitle?: string;
+>   }[];
+> }
+> ```
+> Please provide the raw JSON content for both files.

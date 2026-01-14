@@ -1,5 +1,5 @@
 export interface MeliVariation {
-  id: string;
+  id: string | number;
   user_product_id: string;
   attribute_combinations: any[]; // Using any[] as per requirement "[]", but could be more specific if known
   sku: string;
@@ -23,6 +23,8 @@ export interface StockRule {
   motherItemId: string;
   childItemId: string;
   active: boolean;
+  childSku?: string;
+  childTitle?: string;
 }
 
 export interface StockRuleGroup {

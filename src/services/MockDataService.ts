@@ -1,57 +1,11 @@
 import type { IDataService } from './IDataService';
 import type { MeliItem, StockRuleGroup } from '../models/types';
+import mockItems from '../mocks/mockItems.json';
+import mockRules from '../mocks/mockRules.json';
 
-const MOCK_ITEMS: MeliItem[] = [
-    {
-        id: 'MLA123456789',
-        title: 'Camiseta de Algodón Premium',
-        thumbnail: 'http://http2.mlstatic.com/D_812345-MLA123456789_012023-I.jpg',
-        logistic_type: 'fulfillment',
-        sku: 'TSHIRT-001',
-        price: 1500,
-        variations: [
-            {
-                id: '12345678901',
-                user_product_id: 'UPID-1',
-                attribute_combinations: [],
-                sku: 'TSHIRT-001-S'
-            },
-            {
-                id: '12345678902',
-                user_product_id: 'UPID-2',
-                attribute_combinations: [],
-                sku: 'TSHIRT-001-M'
-            }
-        ]
-    },
-    {
-        id: 'MLA987654321',
-        title: 'Pack x3 Calcetines Deportivos',
-        thumbnail: 'http://http2.mlstatic.com/D_987654-MLA987654321_012023-I.jpg',
-        logistic_type: 'cross_docking',
-        sku: 'SOCKS-PACK-3',
-        price: 3000,
-        variations: []
-    }
-];
-
-const MOCK_RULES: StockRuleGroup[] = [
-    {
-        motherItemId: 'MLA123456789',
-        motherSku: 'TSHIRT-001',
-        rules: [
-            {
-                motherUserProductId: 'UPID-1',
-                childUserProductId: 'UPID-CHILD-1',
-                type: 'PACK',
-                packQuantity: 1,
-                motherItemId: 'MLA123456789',
-                childItemId: 'MLA987654321',
-                active: true
-            }
-        ]
-    }
-];
+// Initialize in-memory data from JSON files
+const MOCK_ITEMS: MeliItem[] = mockItems as MeliItem[];
+const MOCK_RULES: StockRuleGroup[] = [...mockRules] as StockRuleGroup[];
 
 export class MockDataService implements IDataService {
     private delay(ms: number) {
@@ -61,9 +15,10 @@ export class MockDataService implements IDataService {
     async searchItems(query: string): Promise<MeliItem[]> {
         await this.delay(500);
         if (!query) return MOCK_ITEMS;
+        const lowerQuery = query.toLowerCase();
         return MOCK_ITEMS.filter(item =>
-            item.title.toLowerCase().includes(query.toLowerCase()) ||
-            item.sku.toLowerCase().includes(query.toLowerCase())
+            item.title.toLowerCase().includes(lowerQuery) ||
+            item.sku.toLowerCase().includes(lowerQuery)
         );
     }
 
@@ -83,17 +38,31 @@ export class MockDataService implements IDataService {
         await this.delay(500);
         const index = MOCK_RULES.findIndex(r => r.motherItemId === rule.motherItemId);
         if (index >= 0) {
+            // Update existing group
             MOCK_RULES[index] = rule;
         } else {
+            // Add new group
             MOCK_RULES.push(rule);
         }
     }
 
     async deleteStockRule(motherId: string, childId: string): Promise<void> {
         await this.delay(500);
-        const group = MOCK_RULES.find(r => r.motherItemId === motherId);
-        if (group) {
+        const groupIndex = MOCK_RULES.findIndex(r => r.motherItemId === motherId);
+
+        if (groupIndex >= 0) {
+            const group = MOCK_RULES[groupIndex];
+            // Filter out the rule for the specific child item
             group.rules = group.rules.filter(r => r.childItemId !== childId);
+
+            // If no rules left in the group, we might want to remove the group itself, 
+            // or keep it empty. For now, let's keep it as is or remove if empty?
+            // Requirement says "Remove the specific rule", so filtering is correct.
+            // If the group becomes empty, it's fine to leave it or remove it.
+            // Let's remove the group if it has no rules left to keep it clean.
+            if (group.rules.length === 0) {
+                MOCK_RULES.splice(groupIndex, 1);
+            }
         }
     }
 }

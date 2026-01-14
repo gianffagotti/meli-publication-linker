@@ -2,7 +2,8 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { RuleEditorPage } from './pages/RuleEditorPage';
 import MainLayout from './components/Layout/MainLayout';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -34,6 +35,8 @@ function App() {
             }
           >
             <Route index element={<DashboardPage />} />
+            <Route path="rules/new" element={<RuleEditorPage />} />
+            <Route path="rules/edit/:id" element={<RuleEditorPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
