@@ -31,7 +31,14 @@ export class MockDataService implements IDataService {
 
     async getStockRules(): Promise<StockRuleGroup[]> {
         await this.delay(500);
-        return [...MOCK_RULES];
+        return MOCK_RULES.map(ruleGroup => {
+            const item = MOCK_ITEMS.find(i => i.id === ruleGroup.motherItemId);
+            return {
+                ...ruleGroup,
+                motherTitle: item?.title,
+                motherThumbnail: item?.thumbnail
+            };
+        });
     }
 
     async saveStockRule(rule: StockRuleGroup): Promise<void> {

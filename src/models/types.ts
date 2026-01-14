@@ -31,4 +31,6 @@ export interface StockRuleGroup {
   motherItemId: string;
   motherSku: string;
   rules: StockRule[];
+  motherTitle?: string;
+  motherThumbnail?: string;
 }
