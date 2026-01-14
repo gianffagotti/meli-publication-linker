@@ -60,7 +60,7 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
     return (
         <Autocomplete
             id="asynchronous-item-search"
-            sx={{ width: '100%' }}
+            fullWidth
             open={open}
             onOpen={() => {
                 setOpen(true);
@@ -105,14 +105,19 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
                 <TextField
                     {...params}
                     label={label}
+                    variant="outlined"
                     InputProps={{
                         ...params.InputProps,
+                        style: { fontSize: '1.1rem' }, // Slightly larger text
                         endAdornment: (
                             <React.Fragment>
                                 {loading ? <CircularProgress color="inherit" size={20} /> : null}
                                 {params.InputProps.endAdornment}
                             </React.Fragment>
                         ),
+                    }}
+                    InputLabelProps={{
+                        style: { fontSize: '1.1rem' } // Match label size
                     }}
                 />
             )}
