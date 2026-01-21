@@ -10,6 +10,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const isLocal = import.meta.env.VITE_LOCAL === 'true';
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<ClientPrincipal | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -29,9 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // So I will assume "set a fake user state immediately" meant "when login is called" or "be ready".
             // Actually, I'll check if we are in production.
 
-            const useMock = import.meta.env.VITE_USE_MOCK === 'true';
-
-            if (!useMock) {
+            if (!isLocal) {
                 try {
                     const response = await fetch('/.auth/me');
                     const payload = await response.json();
@@ -53,8 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = () => {
-        const useMock = import.meta.env.VITE_USE_MOCK === 'true';
-        if (useMock) {
+        if (isLocal) {
             setUser({
                 identityProvider: 'mock',
                 userId: 'mock-user-123',
@@ -67,8 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const logout = () => {
-        const useMock = import.meta.env.VITE_USE_MOCK === 'true';
-        if (useMock) {
+        if (isLocal) {
             setUser(null);
         } else {
             window.location.href = '/.auth/logout';
