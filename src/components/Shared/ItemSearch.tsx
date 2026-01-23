@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Autocomplete, TextField, CircularProgress, Box, Typography, Avatar, Grid } from '@mui/material';
+import { Autocomplete, TextField, CircularProgress, Box, Avatar, Grid } from '@mui/material';
 import { debounce } from '@mui/material/utils';
 import { dataService } from '../../services/apiFactory';
 import type { MeliItem } from '../../models/types';
@@ -69,7 +69,7 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
                 setOpen(false);
             }}
             isOptionEqualToValue={(option, value) => option.id === value.id}
-            getOptionLabel={(option) => `${option.title} (${option.sku})`}
+            getOptionLabel={(option) => `${option.title || ''}`}
             options={options}
             loading={loading}
             onInputChange={(_, newInputValue) => {
@@ -86,16 +86,13 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
                         <Grid container alignItems="center">
                             {/* @ts-ignore */}
                             <Grid item sx={{ display: 'flex', width: 44 }}>
-                                <Avatar src={option.thumbnail} alt={option.title} variant="square" />
+                                <Avatar src={option.thumbnail || ''} alt={option.title || ''} variant="square" />
                             </Grid>
                             {/* @ts-ignore */}
                             <Grid item sx={{ width: 'calc(100% - 44px)', wordWrap: 'break-word' }}>
                                 <Box component="span" sx={{ fontWeight: 'bold' }}>
-                                    {option.title}
+                                    {option.title || 'No Title'}
                                 </Box>
-                                <Typography variant="body2" color="text.secondary">
-                                    SKU: {option.sku} - Price: ${option.price}
-                                </Typography>
                             </Grid>
                         </Grid>
                     </li>

@@ -31,15 +31,12 @@ export const RuleCard: React.FC<RuleCardProps> = ({ ruleGroup, onEdit, onDelete 
                     component="img"
                     height="200"
                     image={ruleGroup.motherThumbnail || 'https://via.placeholder.com/200'}
-                    alt={ruleGroup.motherTitle || ruleGroup.motherSku}
+                    alt={ruleGroup.motherTitle}
                     sx={{ objectFit: 'contain', p: 2, bgcolor: 'white' }}
                 />
                 <CardContent sx={{ flexGrow: 1 }}>
                     <Typography gutterBottom variant="h6" component="div" noWrap title={ruleGroup.motherTitle}>
                         {ruleGroup.motherTitle || 'Unknown Product'}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                        SKU: {ruleGroup.motherSku}
                     </Typography>
 
                     <Stack direction="row" spacing={1} sx={{ mt: 2 }}>

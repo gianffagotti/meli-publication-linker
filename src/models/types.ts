@@ -1,18 +1,15 @@
 export interface MeliVariation {
-  id: string | number;
+  id: number;
   user_product_id: string;
-  attribute_combinations: any[]; // Using any[] as per requirement "[]", but could be more specific if known
-  sku: string;
+  sku?: string;
+  description?: string;
 }
 
 export interface MeliItem {
   id: string;
-  title: string;
-  thumbnail: string;
-  logistic_type: string;
-  sku: string;
-  price: number;
   variations: MeliVariation[];
+  title?: string;
+  thumbnail?: string;
 }
 
 export interface StockRule {
@@ -29,7 +26,6 @@ export interface StockRule {
 
 export interface StockRuleGroup {
   motherItemId: string;
-  motherSku: string;
   rules: StockRule[];
   motherTitle?: string;
   motherThumbnail?: string;

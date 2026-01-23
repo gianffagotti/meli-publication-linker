@@ -4,7 +4,7 @@ import mockItems from '../mocks/mockItems.json';
 import mockRules from '../mocks/mockRules.json';
 
 // Initialize in-memory data from JSON files
-const MOCK_ITEMS: MeliItem[] = mockItems as MeliItem[];
+const MOCK_ITEMS: MeliItem[] = mockItems as unknown as MeliItem[];
 const MOCK_RULES: StockRuleGroup[] = [...mockRules] as StockRuleGroup[];
 
 export class MockDataService implements IDataService {
@@ -17,8 +17,7 @@ export class MockDataService implements IDataService {
         if (!query) return MOCK_ITEMS;
         const lowerQuery = query.toLowerCase();
         return MOCK_ITEMS.filter(item =>
-            item.title.toLowerCase().includes(lowerQuery) ||
-            item.sku.toLowerCase().includes(lowerQuery)
+            (item.title?.toLowerCase().includes(lowerQuery) ?? false)
         );
     }
 
