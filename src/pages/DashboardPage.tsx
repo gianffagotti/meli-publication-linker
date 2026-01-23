@@ -49,7 +49,19 @@ export const DashboardPage: React.FC = () => {
     }, []);
 
     const handleEdit = (id: string) => {
-        navigate(`/rules/edit/${id}`);
+        const group = rules.find(r => r.motherItemId === id);
+        if (group && group.rules.length > 0) {
+            const rule = group.rules[0] as any;
+            // Try multiple possible casing/naming conventions
+            const childId = rule.childItemId || rule.ChildItemId || rule.RowKey || rule.rowKey || rule.ChildId || rule.childId;
+
+            if (childId) {
+                navigate(`/rules/${id}/edit/${childId}`);
+            } else {
+                console.error('Child Item ID not found in rule. Available keys:', Object.keys(rule));
+                setError(`Cannot edit: Child Item ID missing. Available fields: ${Object.keys(rule).join(', ')}`);
+            }
+        }
     };
 
     const handleDeleteClick = (motherId: string) => {
@@ -83,8 +95,7 @@ export const DashboardPage: React.FC = () => {
         if (!searchTerm) return true;
         const term = searchTerm.toLowerCase();
         return (
-            (rule.motherTitle?.toLowerCase() || '').includes(term) ||
-            rule.motherSku.toLowerCase().includes(term)
+            (rule.motherTitle?.toLowerCase() || '').includes(term)
         );
     });
 

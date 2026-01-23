@@ -25,6 +25,7 @@ import {
     FormControlLabel,
     FormLabel
 } from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ItemSearch } from '../components/Shared/ItemSearch';
 import { dataService } from '../services/apiFactory';
@@ -32,7 +33,7 @@ import type { MeliItem, StockRule, StockRuleGroup } from '../models/types';
 
 export const RuleEditorPage: React.FC = () => {
     const navigate = useNavigate();
-    const { id } = useParams<{ id: string }>(); // For edit mode (future use)
+    const { motherId, childId } = useParams<{ motherId: string; childId: string }>(); // For edit mode
 
     const [selectedMother, setSelectedMother] = useState<MeliItem | null>(null);
     const [selectedChild, setSelectedChild] = useState<MeliItem | null>(null);
@@ -44,6 +45,7 @@ export const RuleEditorPage: React.FC = () => {
     const [globalQuantity, setGlobalQuantity] = useState<number>(3);
 
     const [rules, setRules] = useState<StockRule[]>([]);
+    const [existingRules, setExistingRules] = useState<StockRule[] | null>(null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -58,9 +60,11 @@ export const RuleEditorPage: React.FC = () => {
         try {
             const fullItem = await dataService.getItemDetails(item.id);
             setSelectedMother(fullItem);
+            setSelectedMother(fullItem);
             // Reset child and rules when mother changes
             setSelectedChild(null);
             setRules([]);
+            setExistingRules(null);
         } catch (err) {
             console.error(err);
             setError('Failed to load Mother item details');
@@ -92,6 +96,18 @@ export const RuleEditorPage: React.FC = () => {
     useEffect(() => {
         if (selectedMother && selectedChild) {
             const newRules: StockRule[] = selectedMother.variations.map(mVar => {
+                // Check if we have an existing rule for this variation
+                if (existingRules) {
+                    const savedRule = existingRules.find(r => r.motherUserProductId === mVar.user_product_id);
+                    if (savedRule) {
+                        return {
+                            ...savedRule,
+                            motherItemId: selectedMother.id,
+                            childItemId: selectedChild.id
+                        };
+                    }
+                }
+
                 // Try to find a matching child variation by SKU
                 const matchingChildVar = selectedChild.variations.find(cVar =>
                     cVar.sku === mVar.sku ||
@@ -111,7 +127,53 @@ export const RuleEditorPage: React.FC = () => {
             });
             setRules(newRules);
         }
-    }, [selectedMother, selectedChild]); // We don't re-run on childType/globalQuantity change to avoid resetting manual matches
+    }, [selectedMother, selectedChild, existingRules]); // We don't re-run on childType/globalQuantity change to avoid resetting manual matches
+
+    // Load existing rule if in edit mode
+    useEffect(() => {
+        const loadExistingRule = async () => {
+            if (!motherId || !childId) return;
+
+            try {
+                setLoadingMother(true);
+                setLoadingChild(true);
+
+                // Load Mother and Child in parallel
+                const [mother, child, allGroups] = await Promise.all([
+                    dataService.getItemDetails(motherId),
+                    dataService.getItemDetails(childId),
+                    dataService.getStockRules()
+                ]);
+
+                setSelectedMother(mother);
+                setSelectedChild(child);
+
+                const group = allGroups.find(g => g.motherItemId === motherId);
+
+                if (group && group.rules.length > 0) {
+                    // Find the rule specifically for this child if possible, or default to first
+                    // In the current data model, a group is by mother, and rules list children.
+                    // We should find the rule corresponding to this childId.
+                    const ruleForChild = group.rules.find(r => r.childItemId === childId) || group.rules[0];
+
+                    // Set Config
+                    setChildType(ruleForChild.type);
+                    setGlobalQuantity(ruleForChild.packQuantity);
+
+                    // Set Existing Rules for the auto-match effect to pick up
+                    setExistingRules(group.rules);
+                }
+            } catch (err) {
+                console.error(err);
+                setError('Failed to load existing rules');
+            } finally {
+                setLoadingMother(false);
+                setLoadingChild(false);
+            }
+        };
+
+        loadExistingRule();
+    }, [motherId, childId]);
 
     const handleRuleChange = (index: number, field: keyof StockRule, value: any) => {
         const updatedRules = [...rules];
@@ -137,7 +199,6 @@ export const RuleEditorPage: React.FC = () => {
 
             const ruleGroup: StockRuleGroup = {
                 motherItemId: selectedMother.id,
-                motherSku: selectedMother.sku,
                 rules: finalRules,
                 motherTitle: selectedMother.title,
                 motherThumbnail: selectedMother.thumbnail
@@ -155,8 +216,18 @@ export const RuleEditorPage: React.FC = () => {
 
     return (
         <Box sx={{ p: 3 }}>
+            <Box sx={{ mb: 2 }}>
+                <Button
+                    startIcon={<ArrowBackIcon />}
+                    onClick={() => navigate('/')}
+                    variant="text"
+                    sx={{ mb: 1 }}
+                >
+                    Volver al Dashboard
+                </Button>
+            </Box>
             <Typography variant="h4" gutterBottom sx={{ mb: 4 }}>
-                {id ? 'Edit Stock Rules' : 'New Stock Link'}
+                {motherId ? 'Edit Stock Rules' : 'New Stock Link'}
             </Typography>
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -186,8 +257,6 @@ export const RuleEditorPage: React.FC = () => {
                                         <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>{selectedMother.title}</Typography>
                                         <Typography variant="body2" color="text.secondary">
                                             ID: {selectedMother.id} <br />
-                                            SKU: {selectedMother.sku} <br />
-                                            Price: ${selectedMother.price}
                                         </Typography>
                                     </Box>
                                 </Box>
@@ -224,8 +293,6 @@ export const RuleEditorPage: React.FC = () => {
                                                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>{selectedChild.title}</Typography>
                                                     <Typography variant="body2" color="text.secondary">
                                                         ID: {selectedChild.id} <br />
-                                                        SKU: {selectedChild.sku} <br />
-                                                        Price: ${selectedChild.price}
                                                     </Typography>
                                                 </Box>
                                             </Box>
@@ -304,7 +371,7 @@ export const RuleEditorPage: React.FC = () => {
                                                         {mVar.sku || 'No SKU'}
                                                     </Typography>
                                                     <Typography variant="caption" color="text.secondary">
-                                                        ID: {mVar.id}
+                                                        Desc: {mVar.description}
                                                     </Typography>
                                                 </TableCell>
                                                 <TableCell sx={{ width: '50%' }}>
@@ -319,7 +386,7 @@ export const RuleEditorPage: React.FC = () => {
                                                             </MenuItem>
                                                             {selectedChild.variations.map(cVar => (
                                                                 <MenuItem key={cVar.id} value={cVar.user_product_id}>
-                                                                    {cVar.sku || 'No SKU'} (ID: {cVar.id})
+                                                                    {cVar.sku || 'No SKU'} (Desc: {cVar.description})
                                                                 </MenuItem>
                                                             ))}
                                                         </Select>
