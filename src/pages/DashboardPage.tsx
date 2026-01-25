@@ -4,11 +4,6 @@ import {
     Grid,
     CircularProgress,
     Alert,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogContentText,
-    DialogActions,
     Button,
     Typography,
     Container
@@ -27,10 +22,6 @@ export const DashboardPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Delete state
-    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-    const [ruleToDelete, setRuleToDelete] = useState<string | null>(null);
-
     const fetchRules = async () => {
         setLoading(true);
         try {
@@ -48,34 +39,20 @@ export const DashboardPage: React.FC = () => {
         fetchRules();
     }, []);
 
-    const handleDeleteClick = (motherId: string) => {
-        setRuleToDelete(motherId);
-        setDeleteConfirmOpen(true);
-    };
-
-    const handleDeleteConfirm = async () => {
-        if (!ruleToDelete) return;
-
-        try {
-            const group = rules.find(r => r.motherItemId === ruleToDelete);
-            if (group) {
-                // Delete all rules in the group
-                for (const rule of group.rules) {
-                    await dataService.deleteStockRule(rule.motherItemId, rule.childItemId);
-                }
-                await fetchRules();
-            }
-        } catch (err) {
-            console.error(err);
-            setError('Error al eliminar las reglas');
-        } finally {
-            setDeleteConfirmOpen(false);
-            setRuleToDelete(null);
-        }
-    };
-
     const handleEditChild = (motherId: string, childId: string) => {
         navigate(`/rules/${motherId}/edit/${childId}`);
+    };
+
+    const handleDeleteGroup = async (motherId: string) => {
+        if (window.confirm('¿Está seguro de que desea eliminar este enlace? Esto eliminará todas las reglas asociadas con esta publicación hija.')) {
+            try {
+                await dataService.deleteStockRuleGroup(motherId);
+                await fetchRules();
+            } catch (err) {
+                console.error(err);
+                setError('Error al eliminar las reglas');
+            }
+        }
     };
 
     const handleDeleteRule = async (motherId: string, childId: string) => {
@@ -124,7 +101,7 @@ export const DashboardPage: React.FC = () => {
                                         <RuleCard
                                             ruleGroup={group}
                                             onEditChild={handleEditChild}
-                                            onDeleteGroup={handleDeleteClick}
+                                            onDeleteGroup={handleDeleteGroup}
                                             onDeleteRule={handleDeleteRule}
                                         />
                                     </Grid>
@@ -152,24 +129,6 @@ export const DashboardPage: React.FC = () => {
                         )}
                     </>
                 )}
-
-                <Dialog
-                    open={deleteConfirmOpen}
-                    onClose={() => setDeleteConfirmOpen(false)}
-                >
-                    <DialogTitle>Confirmar Eliminación</DialogTitle>
-                    <DialogContent>
-                        <DialogContentText>
-                            ¿Está seguro de que desea eliminar todas las reglas para esta publicación Madre? Esta acción no se puede deshacer.
-                        </DialogContentText>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setDeleteConfirmOpen(false)}>Cancelar</Button>
-                        <Button onClick={handleDeleteConfirm} color="error" autoFocus>
-                            Eliminar
-                        </Button>
-                    </DialogActions>
-                </Dialog>
             </Container>
         </Box>
     );

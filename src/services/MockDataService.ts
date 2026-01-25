@@ -71,4 +71,12 @@ export class MockDataService implements IDataService {
             }
         }
     }
+
+    async deleteStockRuleGroup(motherId: string): Promise<void> {
+        await this.delay(500);
+        const groupIndex = MOCK_RULES.findIndex(r => r.motherItemId === motherId);
+        if (groupIndex >= 0) {
+            MOCK_RULES.splice(groupIndex, 1);
+        }
+    }
 }

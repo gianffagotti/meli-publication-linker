@@ -6,4 +6,5 @@ export interface IDataService {
     getStockRules(): Promise<StockRuleGroup[]>;
     saveStockRule(rule: StockRuleGroup): Promise<void>;
     deleteStockRule(motherId: string, childId: string): Promise<void>;
+    deleteStockRuleGroup(motherId: string): Promise<void>;
 }
