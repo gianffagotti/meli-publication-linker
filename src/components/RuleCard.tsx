@@ -9,14 +9,13 @@ import {
     Typography,
     Chip,
     IconButton,
-    Button,
     List,
     ListItem,
-    ListItemText,
     ListItemAvatar,
     Avatar,
     Stack,
-    Tooltip
+    Tooltip,
+    Box
 } from '@mui/material';
 import {
     Edit as EditIcon,
@@ -30,7 +29,6 @@ import type { StockRuleGroup } from '../models/types';
 
 interface RuleCardProps {
     ruleGroup: StockRuleGroup;
-    onEdit: (id: string) => void;
     onEditChild: (motherId: string, childId: string) => void;
     onDeleteGroup: (id: string) => void;
     onDeleteRule: (motherId: string, childId: string) => void;
@@ -51,7 +49,7 @@ const ExpandMore = styled((props: ExpandMoreProps) => {
     }),
 }));
 
-export const RuleCard: React.FC<RuleCardProps> = ({ ruleGroup, onEdit, onEditChild, onDeleteGroup, onDeleteRule }) => {
+export const RuleCard: React.FC<RuleCardProps> = ({ ruleGroup, onEditChild, onDeleteGroup, onDeleteRule }) => {
     const [expanded, setExpanded] = useState(false);
 
     // Calculate rule summaries
@@ -126,13 +124,6 @@ export const RuleCard: React.FC<RuleCardProps> = ({ ruleGroup, onEdit, onEditChi
             </CardContent>
 
             <CardActions disableSpacing>
-                <Button
-                    size="small"
-                    startIcon={<EditIcon />}
-                    onClick={() => onEdit(ruleGroup.motherItemId)}
-                >
-                    Edit Group
-                </Button>
                 <ExpandMore
                     expand={expanded}
                     onClick={handleExpandClick}
@@ -152,69 +143,54 @@ export const RuleCard: React.FC<RuleCardProps> = ({ ruleGroup, onEdit, onEditChi
                         {uniqueChildren.map((child) => (
                             <ListItem
                                 key={child.childItemId}
-                                secondaryAction={
-                                    <Stack direction="row" spacing={0.5}>
+                                sx={{
+                                    bgcolor: 'background.paper',
+                                    mb: 1,
+                                    borderRadius: 1,
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    p: 1,
+                                    '&:hover': {
+                                        bgcolor: 'action.hover',
+                                    }
+                                }}
+                            >
+                                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                                    <ListItemAvatar sx={{ minWidth: 40 }}>
+                                        <Avatar sx={{ width: 32, height: 32, bgcolor: 'grey.100', color: 'text.secondary' }}>
+                                            <InventoryIcon sx={{ fontSize: 18 }} />
+                                        </Avatar>
+                                    </ListItemAvatar>
+
+                                    <Box sx={{ flexGrow: 1, minWidth: 0, mr: 1 }}>
+                                        <Tooltip title={child.childTitle || ''}>
+                                            <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
+                                                {child.childTitle || 'Unknown Child'}
+                                            </Typography>
+                                        </Tooltip>
+                                    </Box>
+
+                                    <Stack direction="row" spacing={0} sx={{ flexShrink: 0 }}>
                                         <Tooltip title="Edit Child Rules">
                                             <IconButton
-                                                edge="end"
-                                                aria-label="edit"
                                                 size="small"
                                                 onClick={() => onEditChild(ruleGroup.motherItemId, child.childItemId)}
+                                                sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
                                             >
                                                 <EditIcon fontSize="small" />
                                             </IconButton>
                                         </Tooltip>
                                         <Tooltip title="Delete Link">
                                             <IconButton
-                                                edge="end"
-                                                aria-label="delete"
                                                 size="small"
                                                 onClick={() => onDeleteRule(ruleGroup.motherItemId, child.childItemId)}
+                                                sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
                                             >
                                                 <DeleteIcon fontSize="small" />
                                             </IconButton>
                                         </Tooltip>
                                     </Stack>
-                                }
-                                sx={{
-                                    bgcolor: 'background.paper',
-                                    mb: 1,
-                                    borderRadius: 1,
-                                    border: '1px solid',
-                                    borderColor: 'divider'
-                                }}
-                            >
-                                <ListItemAvatar>
-                                    <Avatar sx={{ width: 32, height: 32, bgcolor: 'grey.300' }}>
-                                        <InventoryIcon sx={{ fontSize: 20, color: 'grey.700' }} />
-                                    </Avatar>
-                                </ListItemAvatar>
-                                <ListItemText
-                                    primary={
-                                        <Typography variant="body2" noWrap title={child.childTitle}>
-                                            {child.childTitle || 'Unknown Child'}
-                                        </Typography>
-                                    }
-                                    secondary={
-                                        <Stack direction="column" spacing={0.5}>
-                                            <Typography variant="caption" color="text.secondary">
-                                                SKU: {child.childSku || 'N/A'}
-                                            </Typography>
-                                            <Stack direction="row" spacing={0.5}>
-                                                {child.rules.map((r, i) => (
-                                                    <Chip
-                                                        key={i}
-                                                        label={`${r.type} x${r.packQuantity}`}
-                                                        size="small"
-                                                        variant="outlined"
-                                                        color={r.type === 'FULL' ? 'primary' : 'secondary'}
-                                                        sx={{ height: 20, fontSize: '0.65rem' }}
-                                                    />
-                                                ))}
-                                            </Stack>
-                                        </Stack>
-                                    }
-                                />
+                                </Box>
                             </ListItem>
                         ))}
                     </List>

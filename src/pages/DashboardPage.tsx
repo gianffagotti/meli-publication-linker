@@ -48,22 +48,6 @@ export const DashboardPage: React.FC = () => {
         fetchRules();
     }, []);
 
-    const handleEdit = (id: string) => {
-        const group = rules.find(r => r.motherItemId === id);
-        if (group && group.rules.length > 0) {
-            const rule = group.rules[0] as any;
-            // Try multiple possible casing/naming conventions
-            const childId = rule.childItemId || rule.ChildItemId || rule.RowKey || rule.rowKey || rule.ChildId || rule.childId;
-
-            if (childId) {
-                navigate(`/rules/${id}/edit/${childId}`);
-            } else {
-                console.error('Child Item ID not found in rule. Available keys:', Object.keys(rule));
-                setError(`Cannot edit: Child Item ID missing. Available fields: ${Object.keys(rule).join(', ')}`);
-            }
-        }
-    };
-
     const handleDeleteClick = (motherId: string) => {
         setRuleToDelete(motherId);
         setDeleteConfirmOpen(true);
@@ -139,7 +123,6 @@ export const DashboardPage: React.FC = () => {
                                     <Grid item xs={12} sm={6} md={4} lg={3} key={group.motherItemId}>
                                         <RuleCard
                                             ruleGroup={group}
-                                            onEdit={handleEdit}
                                             onEditChild={handleEditChild}
                                             onDeleteGroup={handleDeleteClick}
                                             onDeleteRule={handleDeleteRule}

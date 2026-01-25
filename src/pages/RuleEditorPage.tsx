@@ -183,6 +183,7 @@ export const RuleEditorPage: React.FC = () => {
 
     const handleSave = async () => {
         if (!selectedMother) return;
+        if (!selectedChild) return;
 
         setSaving(true);
         setError(null);
@@ -194,7 +195,8 @@ export const RuleEditorPage: React.FC = () => {
                 .map(r => ({
                     ...r,
                     type: childType,
-                    packQuantity: childType === 'PACK' ? globalQuantity : 1
+                    packQuantity: childType === 'PACK' ? globalQuantity : 1,
+                    childTitle: selectedChild.title
                 }));
 
             const ruleGroup: StockRuleGroup = {
@@ -227,7 +229,7 @@ export const RuleEditorPage: React.FC = () => {
                 </Button>
             </Box>
             <Typography variant="h4" gutterBottom sx={{ mb: 4 }}>
-                {motherId ? 'Edit Stock Rules' : 'New Stock Link'}
+                {motherId ? 'Editar Regla' : 'Nueva Regla'}
             </Typography>
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
