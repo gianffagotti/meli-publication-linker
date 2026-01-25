@@ -70,6 +70,7 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
             }}
             isOptionEqualToValue={(option, value) => option.id === value.id}
             getOptionLabel={(option) => `${option.title || ''}`}
+            filterOptions={(x) => x}
             options={options}
             loading={loading}
             onInputChange={(_, newInputValue) => {
