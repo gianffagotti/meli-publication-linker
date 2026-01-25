@@ -1,0 +1,86 @@
+[
+    {
+        "motherItemId": "MLA-BOXER-FLEX",
+        "motherSku": "BOX-LIS-01",
+        "rules": [
+            {
+                "motherUserProductId": "UPID-BOX-N-S",
+                "childUserProductId": "UPID-BOX-N-S-FULL",
+                "type": "FULL",
+                "packQuantity": 1,
+                "motherItemId": "MLA-BOXER-FLEX",
+                "childItemId": "MLA-BOXER-FULL",
+                "childSku": "BOX-NEG-S",
+                "childTitle": "Boxer Hombre Algodón Liso Premium [FULL]",
+                "active": true
+            },
+            {
+                "motherUserProductId": "UPID-BOX-N-M",
+                "childUserProductId": "UPID-BOX-N-M-FULL",
+                "type": "FULL",
+                "packQuantity": 1,
+                "motherItemId": "MLA-BOXER-FLEX",
+                "childItemId": "MLA-BOXER-FULL",
+                "childSku": "BOX-NEG-M",
+                "childTitle": "Boxer Hombre Algodón Liso Premium [FULL]",
+                "active": true
+            },
+            {
+                "motherUserProductId": "UPID-BOX-N-S",
+                "childUserProductId": "UPID-BOX-N-S-P3",
+                "type": "PACK",
+                "packQuantity": 3,
+                "motherItemId": "MLA-BOXER-FLEX",
+                "childItemId": "MLA-BOXER-PACK3",
+                "childSku": "BOX-NEG-S",
+                "childTitle": "Pack x3 Boxer Hombre Algodón Surtido",
+                "active": true
+            },
+            {
+                "motherUserProductId": "UPID-BOX-N-M",
+                "childUserProductId": "UPID-BOX-N-M-P3",
+                "type": "PACK",
+                "packQuantity": 3,
+                "motherItemId": "MLA-BOXER-FLEX",
+                "childItemId": "MLA-BOXER-PACK3",
+                "childSku": "BOX-NEG-M",
+                "childTitle": "Pack x3 Boxer Hombre Algodón Surtido",
+                "active": true
+            }
+        ]
+    },
+    {
+        "motherItemId": "MLA-JEAN-MUJER-FLEX",
+        "motherSku": "JEAN-MOM-01",
+        "rules": [
+            {
+                "motherUserProductId": "UPID-JEAN-36",
+                "childUserProductId": "UPID-JEAN-36-F",
+                "type": "FULL",
+                "packQuantity": 1,
+                "motherItemId": "MLA-JEAN-MUJER-FLEX",
+                "childItemId": "MLA-JEAN-MUJER-FULL",
+                "childSku": "JEAN-MOM-36",
+                "childTitle": "Jean Mujer Mom Rígido Celeste [FULL]",
+                "active": true
+            }
+        ]
+    },
+    {
+        "motherItemId": "MLA-MEDIAS-FLEX",
+        "motherSku": "SOCK-WOM-01",
+        "rules": [
+            {
+                "motherUserProductId": "UPID-SOCK-W-U",
+                "childUserProductId": "UPID-SOCK-W-U-P6",
+                "type": "PACK",
+                "packQuantity": 6,
+                "motherItemId": "MLA-MEDIAS-FLEX",
+                "childItemId": "MLA-MEDIAS-PACK6",
+                "childSku": "SOCK-W-UNI",
+                "childTitle": "Pack x6 Medias Soquetes Mujer",
+                "active": true
+            }
+        ]
+    }
+]
