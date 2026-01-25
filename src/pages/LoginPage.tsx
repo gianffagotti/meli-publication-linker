@@ -7,7 +7,7 @@ const LoginPage: React.FC = () => {
     const { login, user, isLoading } = useAuth();
 
     if (isLoading) {
-        return <div>Loading...</div>;
+        return <div>Cargando...</div>;
     }
 
     if (user) {
@@ -18,11 +18,11 @@ const LoginPage: React.FC = () => {
         <Container maxWidth="sm" sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Paper elevation={3} sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                 <Typography variant="h4" component="h1" gutterBottom>
-                    Welcome to Stock Manager
+                    Bienvenido al Gestor de Stock
                 </Typography>
                 <Box sx={{ mt: 2 }}>
                     <Button variant="contained" color="primary" size="large" onClick={login}>
-                        Login with Microsoft
+                        Iniciar Sesión con Microsoft
                     </Button>
                 </Box>
             </Paper>

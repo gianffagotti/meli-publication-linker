@@ -12,13 +12,13 @@ const MainLayout: React.FC = () => {
             <AppBar position="static" elevation={0} sx={{ bgcolor: 'primary.main' }}>
                 <Toolbar>
                     <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
-                        Znube Stock Admin
+                        Gestor de Stock
                     </Typography>
                     {user && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                             <Typography variant="body2" sx={{ color: 'inherit' }}>{user.userDetails}</Typography>
                             <Button color="inherit" variant="outlined" onClick={logout} size="small" sx={{ borderColor: 'rgba(255,255,255,0.5)' }}>
-                                Logout
+                                Cerrar Sesión
                             </Button>
                         </Box>
                     )}

@@ -38,7 +38,7 @@ export const DashboardPage: React.FC = () => {
             setRules(data);
         } catch (err) {
             console.error(err);
-            setError('Failed to load stock rules');
+            setError('Error al cargar las reglas de stock');
         } finally {
             setLoading(false);
         }
@@ -67,7 +67,7 @@ export const DashboardPage: React.FC = () => {
             }
         } catch (err) {
             console.error(err);
-            setError('Failed to delete rules');
+            setError('Error al eliminar las reglas');
         } finally {
             setDeleteConfirmOpen(false);
             setRuleToDelete(null);
@@ -79,13 +79,13 @@ export const DashboardPage: React.FC = () => {
     };
 
     const handleDeleteRule = async (motherId: string, childId: string) => {
-        if (window.confirm('Are you sure you want to delete this link? This will remove all rules associated with this child publication.')) {
+        if (window.confirm('¿Está seguro de que desea eliminar este enlace? Esto eliminará todas las reglas asociadas con esta publicación hija.')) {
             try {
                 await dataService.deleteStockRule(motherId, childId);
                 await fetchRules();
             } catch (err) {
                 console.error(err);
-                setError('Failed to delete rule');
+                setError('Error al eliminar la regla');
             }
         }
     };
@@ -141,11 +141,11 @@ export const DashboardPage: React.FC = () => {
                             }}>
                                 <SearchOffIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                                 <Typography variant="h6" color="text.secondary">
-                                    {searchTerm ? 'No rules found matching your search' : 'No rules found'}
+                                    {searchTerm ? 'No se encontraron reglas que coincidan con su búsqueda' : 'No se encontraron reglas'}
                                 </Typography>
                                 {searchTerm && (
                                     <Button sx={{ mt: 1 }} onClick={() => setSearchTerm('')}>
-                                        Clear Search
+                                        Limpiar Búsqueda
                                     </Button>
                                 )}
                             </Box>
@@ -157,16 +157,16 @@ export const DashboardPage: React.FC = () => {
                     open={deleteConfirmOpen}
                     onClose={() => setDeleteConfirmOpen(false)}
                 >
-                    <DialogTitle>Confirm Delete</DialogTitle>
+                    <DialogTitle>Confirmar Eliminación</DialogTitle>
                     <DialogContent>
                         <DialogContentText>
-                            Are you sure you want to delete all rules for this Mother publication? This action cannot be undone.
+                            ¿Está seguro de que desea eliminar todas las reglas para esta publicación Madre? Esta acción no se puede deshacer.
                         </DialogContentText>
                     </DialogContent>
                     <DialogActions>
-                        <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+                        <Button onClick={() => setDeleteConfirmOpen(false)}>Cancelar</Button>
                         <Button onClick={handleDeleteConfirm} color="error" autoFocus>
-                            Delete
+                            Eliminar
                         </Button>
                     </DialogActions>
                 </Dialog>

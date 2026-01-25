@@ -92,7 +92,7 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
                             {/* @ts-ignore */}
                             <Grid item sx={{ width: 'calc(100% - 44px)', wordWrap: 'break-word' }}>
                                 <Box component="span" sx={{ fontWeight: 'bold' }}>
-                                    {option.title || 'No Title'}
+                                    {option.title || 'Sin Título'}
                                 </Box>
                             </Grid>
                         </Grid>

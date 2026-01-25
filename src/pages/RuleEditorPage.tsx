@@ -67,7 +67,7 @@ export const RuleEditorPage: React.FC = () => {
             setExistingRules(null);
         } catch (err) {
             console.error(err);
-            setError('Failed to load Mother item details');
+            setError('Error al cargar los detalles del artículo Madre');
         } finally {
             setLoadingMother(false);
         }
@@ -86,7 +86,7 @@ export const RuleEditorPage: React.FC = () => {
             setSelectedChild(fullItem);
         } catch (err) {
             console.error(err);
-            setError('Failed to load Child item details');
+            setError('Error al cargar los detalles del artículo Hijo');
         } finally {
             setLoadingChild(false);
         }
@@ -165,7 +165,7 @@ export const RuleEditorPage: React.FC = () => {
                 }
             } catch (err) {
                 console.error(err);
-                setError('Failed to load existing rules');
+                setError('Error al cargar las reglas existentes');
             } finally {
                 setLoadingMother(false);
                 setLoadingChild(false);
@@ -210,7 +210,7 @@ export const RuleEditorPage: React.FC = () => {
             navigate('/');
         } catch (err) {
             console.error(err);
-            setError('Failed to save rules');
+            setError('Error al guardar las reglas');
         } finally {
             setSaving(false);
         }
@@ -370,7 +370,7 @@ export const RuleEditorPage: React.FC = () => {
                                             <TableRow key={mVar.id}>
                                                 <TableCell sx={{ width: '50%' }}>
                                                     <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                                                        {mVar.sku || 'No SKU'}
+                                                        {mVar.sku || 'Sin SKU'}
                                                     </Typography>
                                                     <Typography variant="caption" color="text.secondary">
                                                         Desc: {mVar.description}
@@ -388,7 +388,7 @@ export const RuleEditorPage: React.FC = () => {
                                                             </MenuItem>
                                                             {selectedChild.variations.map(cVar => (
                                                                 <MenuItem key={cVar.id} value={cVar.user_product_id}>
-                                                                    {cVar.sku || 'No SKU'} (Desc: {cVar.description})
+                                                                    {cVar.sku || 'Sin SKU'} (Desc: {cVar.description})
                                                                 </MenuItem>
                                                             ))}
                                                         </Select>

@@ -80,7 +80,7 @@ export const RuleCard: React.FC<RuleCardProps> = ({ ruleGroup, onEditChild, onDe
         <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <CardHeader
                 action={
-                    <Tooltip title="Delete Group">
+                    <Tooltip title="Eliminar Grupo">
                         <IconButton onClick={() => onDeleteGroup(ruleGroup.motherItemId)} color="error">
                             <DeleteSweepIcon />
                         </IconButton>
@@ -88,10 +88,10 @@ export const RuleCard: React.FC<RuleCardProps> = ({ ruleGroup, onEditChild, onDe
                 }
                 title={
                     <Typography variant="subtitle1" noWrap title={ruleGroup.motherTitle} sx={{ fontWeight: 'bold' }}>
-                        {ruleGroup.motherTitle || 'Unknown Product'}
+                        {ruleGroup.motherTitle || 'Producto Desconocido'}
                     </Typography>
                 }
-                subheader={`Linked Publications: ${uniqueChildren.length}`}
+                subheader={`Publicaciones Vinculadas: ${uniqueChildren.length}`}
             />
 
             <CardMedia
@@ -128,7 +128,7 @@ export const RuleCard: React.FC<RuleCardProps> = ({ ruleGroup, onEditChild, onDe
                     expand={expanded}
                     onClick={handleExpandClick}
                     aria-expanded={expanded}
-                    aria-label="show more"
+                    aria-label="mostrar más"
                 >
                     <ExpandMoreIcon />
                 </ExpandMore>
@@ -137,7 +137,7 @@ export const RuleCard: React.FC<RuleCardProps> = ({ ruleGroup, onEditChild, onDe
             <Collapse in={expanded} timeout="auto" unmountOnExit>
                 <CardContent sx={{ pt: 0 }}>
                     <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                        Linked Publications:
+                        Publicaciones Vinculadas:
                     </Typography>
                     <List dense disablePadding>
                         {uniqueChildren.map((child) => (
@@ -165,13 +165,13 @@ export const RuleCard: React.FC<RuleCardProps> = ({ ruleGroup, onEditChild, onDe
                                     <Box sx={{ flexGrow: 1, minWidth: 0, mr: 1 }}>
                                         <Tooltip title={child.childTitle || ''}>
                                             <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
-                                                {child.childTitle || 'Unknown Child'}
+                                                {child.childTitle || 'Publicación Desconocida'}
                                             </Typography>
                                         </Tooltip>
                                     </Box>
 
                                     <Stack direction="row" spacing={0} sx={{ flexShrink: 0 }}>
-                                        <Tooltip title="Edit Child Rules">
+                                        <Tooltip title="Editar Reglas">
                                             <IconButton
                                                 size="small"
                                                 onClick={() => onEditChild(ruleGroup.motherItemId, child.childItemId)}
@@ -180,7 +180,7 @@ export const RuleCard: React.FC<RuleCardProps> = ({ ruleGroup, onEditChild, onDe
                                                 <EditIcon fontSize="small" />
                                             </IconButton>
                                         </Tooltip>
-                                        <Tooltip title="Delete Link">
+                                        <Tooltip title="Eliminar Enlace">
                                             <IconButton
                                                 size="small"
                                                 onClick={() => onDeleteRule(ruleGroup.motherItemId, child.childItemId)}
