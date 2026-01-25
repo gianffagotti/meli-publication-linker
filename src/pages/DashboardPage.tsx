@@ -90,6 +90,22 @@ export const DashboardPage: React.FC = () => {
         }
     };
 
+    const handleEditChild = (motherId: string, childId: string) => {
+        navigate(`/rules/${motherId}/edit/${childId}`);
+    };
+
+    const handleDeleteRule = async (motherId: string, childId: string) => {
+        if (window.confirm('Are you sure you want to delete this link? This will remove all rules associated with this child publication.')) {
+            try {
+                await dataService.deleteStockRule(motherId, childId);
+                await fetchRules();
+            } catch (err) {
+                console.error(err);
+                setError('Failed to delete rule');
+            }
+        }
+    };
+
     // Filter rules based on search term
     const filteredRules = rules.filter(rule => {
         if (!searchTerm) return true;
@@ -124,7 +140,9 @@ export const DashboardPage: React.FC = () => {
                                         <RuleCard
                                             ruleGroup={group}
                                             onEdit={handleEdit}
-                                            onDelete={handleDeleteClick}
+                                            onEditChild={handleEditChild}
+                                            onDeleteGroup={handleDeleteClick}
+                                            onDeleteRule={handleDeleteRule}
                                         />
                                     </Grid>
                                 ))}
