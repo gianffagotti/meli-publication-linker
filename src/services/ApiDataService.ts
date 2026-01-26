@@ -27,6 +27,6 @@ export class ApiDataService implements IDataService {
     }
 
     async deleteStockRuleGroup(motherItemId: string): Promise<void> {
-        await axios.delete(`/api/rules/group/${motherItemId}`);
+        await axios.delete(`/api/rules-group/${motherItemId}`);
     }
 }
