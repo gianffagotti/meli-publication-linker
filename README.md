@@ -1,173 +1,156 @@
-# React + TypeScript + Vite
+# Meli Publication Linker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This project is a React application built with TypeScript and Vite, designed to manage stock rules between Mercado Libre publications (Mother/Child relationships). It allows linking publications to share stock, either as full units (1:1) or packs (N:1).
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+-   **Dashboard**: View all existing stock rules, grouped by "Mother" publication.
+-   **Rule Editor**: Create and edit rules between publications.
+    -   Search for Mother and Child publications.
+    -   Auto-match variations based on SKU.
+    -   Configure relationship type (FULL or PACK).
+-   **Mock Data Support**: Run the application without a backend using local JSON files.
+-   **Proxy Support**: Configured to proxy API requests to a local backend (Azure Functions) on port 7171.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+-   **Frontend**: React, TypeScript, Vite
+-   **UI Library**: Material UI (MUI)
+-   **Routing**: React Router DOM
+-   **HTTP Client**: Axios
 
-## Expanding the ESLint configuration
+## Setup & Installation
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1.  **Install Dependencies**:
+    ```bash
+    npm install
+    ```
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+2.  **Run Locally**:
+    ```bash
+    npm run dev
+    ```
+    The application will start at `http://localhost:5173`.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Configuration
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### Environment Variables
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Create a `.env` file (or use `.env.local`) to configure the application:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+-   `VITE_USE_MOCK=true`: Set to `true` to use local mock data (`src/mocks/`). Set to `false` or remove to use the real backend API.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### Proxy Configuration
 
-## Mock Data Setup
+The `vite.config.ts` is configured to proxy `/api` requests to `http://localhost:7171`. This is intended for development with a local Azure Functions backend.
 
-To run the application with mock data, ensure your `.env` file has `VITE_USE_MOCK=true`.
-
-The mock data files are located in `src/mocks/` and are excluded from version control. You need to create them manually.
-
-### Required Files
-
-1.  `src/mocks/mockItems.json`: Contains an array of `MeliItem` objects.
-2.  `src/mocks/mockRules.json`: Contains an array of `StockRuleGroup` objects.
-
-### Data Structures
-
-**MeliItem**
-```json
-{
-  "id": "MLA123456",
-  "title": "Product Title",
-  "thumbnail": "http://http2.mlstatic.com/D_123456-MLA123456_122020-I.jpg",
-  "logistic_type": "fulfillment",
-  "sku": "SKU-123",
-  "price": 100,
-  "variations": [
-    {
-      "id": 123456789,
-      "user_product_id": "MLAU123456",
-      "attribute_combinations": [],
-      "sku": "SKU-123-VAR"
+```typescript
+server: {
+  proxy: {
+    '/api': {
+      target: 'http://localhost:7171',
+      changeOrigin: true,
+      secure: false,
     }
-  ]
+  }
 }
 ```
 
-**StockRuleGroup**
-```json
-{
-  "motherItemId": "MLA123456",
-  "motherSku": "SKU-123",
-  "rules": [
-    {
-      "motherUserProductId": "MLAU123456",
-      "childUserProductId": "MLAU987654",
-      "type": "FULL",
-      "packQuantity": 1,
-      "motherItemId": "MLA123456",
-      "childItemId": "MLA987654",
-      "active": true,
-      "childSku": "SKU-CHILD",
-      "childTitle": "Child Product Title"
-    }
-  ]
+## Project Structure
+
+-   `src/components`: Reusable UI components (e.g., `StockRulesTable`, `ItemSearch`).
+-   `src/pages`: Application pages (`DashboardPage`, `RuleEditorPage`, `LoginPage`).
+-   `src/services`: API integration and data services.
+    -   `ApiDataService.ts`: Real API implementation.
+    -   `MockDataService.ts`: Mock data implementation.
+    -   `apiFactory.ts`: Selects the service based on `VITE_USE_MOCK`.
+-   `src/models`: TypeScript interfaces (`types.ts`).
+-   `src/mocks`: JSON files for mock data.
+
+## Data Models & Mocks
+
+If running with `VITE_USE_MOCK=true`, ensure you have the following files in `src/mocks/`:
+
+### 1. `src/mocks/mockItems.json`
+
+Contains an array of `MeliItem` objects.
+
+```typescript
+interface MeliItem {
+  id: string;
+  title?: string;
+  thumbnail?: string;
+  variations: {
+    id: number;
+    user_product_id: string;
+    sku?: string;
+    description?: string;
+  }[];
 }
 ```
 
-### Generating Mock Data with AI
+**Example:**
+```json
+[
+  {
+    "id": "MLA-BOXER-FLEX",
+    "title": "Boxer Hombre Algodón Liso Premium",
+    "thumbnail": "https://http2.mlstatic.com/...",
+    "variations": [
+      {
+        "id": 101,
+        "user_product_id": "UPID-BOX-N-S",
+        "sku": "BOX-NEG-S",
+        "description": "Negro S"
+      }
+    ]
+  }
+]
+```
 
-You can use the following prompt to ask an AI (like ChatGPT, Claude, or Gemini) to generate sample data for you:
+### 2. `src/mocks/mockRules.json`
 
-> Please generate two JSON files for a mock data layer in a TypeScript application.
->
-> **File 1: `mockItems.json`**
-> Generate an array of 10 objects matching this TypeScript interface:
-> ```typescript
-> interface MeliItem {
->   id: string; // e.g., "MLA" followed by digits
->   title: string;
->   thumbnail: string; // placeholder URL
->   logistic_type: string; // e.g., "fulfillment", "cross_docking", "self_service"
->   sku: string;
->   price: number;
->   variations: {
->     id: string | number;
->     user_product_id: string;
->     attribute_combinations: any[];
->     sku: string;
->   }[];
-> }
-> ```
->
-> **File 2: `mockRules.json`**
-> Generate an array of 5 objects matching this TypeScript interface. Ensure the `motherItemId` and `motherSku` correspond to items generated in `mockItems.json`.
-> ```typescript
-> interface StockRuleGroup {
->   motherItemId: string;
->   motherSku: string;
->   rules: {
->     motherUserProductId: string;
->     childUserProductId: string;
->     type: 'FULL' | 'PACK';
->     packQuantity: number;
->     motherItemId: string;
->     childItemId: string;
->     active: boolean;
->     childSku?: string;
->     childTitle?: string;
->   }[];
-> }
-> ```
-> Please provide the raw JSON content for both files.
+Contains an array of `StockRuleGroup` objects.
+
+```typescript
+interface StockRuleGroup {
+  motherItemId: string;
+  motherTitle?: string;
+  motherThumbnail?: string;
+  rules: {
+    motherUserProductId: string;
+    childUserProductId: string;
+    type: 'FULL' | 'PACK';
+    packQuantity: number;
+    motherItemId: string;
+    childItemId: string;
+    active: boolean;
+    childSku?: string;
+    childTitle?: string;
+  }[];
+}
+```
+
+**Example:**
+```json
+[
+  {
+    "motherItemId": "MLA-BOXER-FLEX",
+    "motherTitle": "Boxer Hombre Algodón Liso Premium",
+    "motherThumbnail": "https://http2.mlstatic.com/...",
+    "rules": [
+      {
+        "motherUserProductId": "UPID-BOX-N-S",
+        "childUserProductId": "UPID-BOX-N-S-FULL",
+        "type": "FULL",
+        "packQuantity": 1,
+        "motherItemId": "MLA-BOXER-FLEX",
+        "childItemId": "MLA-BOXER-FULL",
+        "childSku": "BOX-NEG-S",
+        "childTitle": "Boxer Hombre Algodón Liso Premium [FULL]",
+        "active": true
+      }
+    ]
+  }
+]
+```
