@@ -3,69 +3,30 @@
         "id": "MLA-BOXER-FLEX",
         "title": "Boxer Hombre Algodón Liso Premium",
         "thumbnail": "https://http2.mlstatic.com/D_646049-MLA45669357945_042021-I.jpg",
-        "logistic_type": "cross_docking",
-        "sku": "BOX-LIS-01",
-        "price": 4500,
         "variations": [
             {
                 "id": 101,
                 "user_product_id": "UPID-BOX-N-S",
                 "sku": "BOX-NEG-S",
-                "attribute_combinations": [
-                    {
-                        "id": "COLOR",
-                        "value_name": "Negro"
-                    },
-                    {
-                        "id": "SIZE",
-                        "value_name": "S"
-                    }
-                ]
+                "description": "Negro S"
             },
             {
                 "id": 102,
                 "user_product_id": "UPID-BOX-N-M",
                 "sku": "BOX-NEG-M",
-                "attribute_combinations": [
-                    {
-                        "id": "COLOR",
-                        "value_name": "Negro"
-                    },
-                    {
-                        "id": "SIZE",
-                        "value_name": "M"
-                    }
-                ]
+                "description": "Negro M"
             },
             {
                 "id": 103,
                 "user_product_id": "UPID-BOX-N-L",
                 "sku": "BOX-NEG-L",
-                "attribute_combinations": [
-                    {
-                        "id": "COLOR",
-                        "value_name": "Negro"
-                    },
-                    {
-                        "id": "SIZE",
-                        "value_name": "L"
-                    }
-                ]
+                "description": "Negro L"
             },
             {
                 "id": 104,
                 "user_product_id": "UPID-BOX-A-M",
                 "sku": "BOX-AZU-M",
-                "attribute_combinations": [
-                    {
-                        "id": "COLOR",
-                        "value_name": "Azul"
-                    },
-                    {
-                        "id": "SIZE",
-                        "value_name": "M"
-                    }
-                ]
+                "description": "Azul M"
             }
         ]
     },
@@ -73,54 +34,24 @@
         "id": "MLA-BOXER-FULL",
         "title": "Boxer Hombre Algodón Liso Premium [FULL]",
         "thumbnail": "https://http2.mlstatic.com/D_646049-MLA45669357945_042021-I.jpg",
-        "logistic_type": "fulfillment",
-        "sku": "BOX-LIS-01",
-        "price": 4500,
         "variations": [
             {
                 "id": 201,
                 "user_product_id": "UPID-BOX-N-S-FULL",
                 "sku": "BOX-NEG-S",
-                "attribute_combinations": [
-                    {
-                        "id": "COLOR",
-                        "value_name": "Negro"
-                    },
-                    {
-                        "id": "SIZE",
-                        "value_name": "S"
-                    }
-                ]
+                "description": "Negro S"
             },
             {
                 "id": 202,
                 "user_product_id": "UPID-BOX-N-M-FULL",
                 "sku": "BOX-NEG-M",
-                "attribute_combinations": [
-                    {
-                        "id": "COLOR",
-                        "value_name": "Negro"
-                    },
-                    {
-                        "id": "SIZE",
-                        "value_name": "M"
-                    }
-                ]
+                "description": "Negro M"
             },
             {
                 "id": 203,
                 "user_product_id": "UPID-BOX-N-L-FULL",
                 "sku": "BOX-NEG-L",
-                "attribute_combinations": [
-                    {
-                        "id": "COLOR",
-                        "value_name": "Negro"
-                    },
-                    {
-                        "id": "SIZE",
-                        "value_name": "L"
-                    }
-                ]
+                "description": "Negro L"
             }
         ]
     },
@@ -128,39 +59,18 @@
         "id": "MLA-BOXER-PACK3",
         "title": "Pack x3 Boxer Hombre Algodón Surtido",
         "thumbnail": "https://http2.mlstatic.com/D_Q_NP_824523-MLA48834578901_012022-Q.jpg",
-        "logistic_type": "cross_docking",
-        "sku": "BOX-PACK-3",
-        "price": 12000,
         "variations": [
             {
                 "id": 301,
                 "user_product_id": "UPID-BOX-N-S-P3",
                 "sku": "BOX-NEG-S",
-                "attribute_combinations": [
-                    {
-                        "id": "COLOR",
-                        "value_name": "Surtido/Negro"
-                    },
-                    {
-                        "id": "SIZE",
-                        "value_name": "S"
-                    }
-                ]
+                "description": "Surtido/Negro S"
             },
             {
                 "id": 302,
                 "user_product_id": "UPID-BOX-N-M-P3",
                 "sku": "BOX-NEG-M",
-                "attribute_combinations": [
-                    {
-                        "id": "COLOR",
-                        "value_name": "Surtido/Negro"
-                    },
-                    {
-                        "id": "SIZE",
-                        "value_name": "M"
-                    }
-                ]
+                "description": "Surtido/Negro M"
             }
         ]
     },
@@ -168,42 +78,24 @@
         "id": "MLA-JEAN-MUJER-FLEX",
         "title": "Jean Mujer Mom Rígido Celeste",
         "thumbnail": "https://http2.mlstatic.com/D_765432-MLA123098_052023-I.jpg",
-        "logistic_type": "cross_docking",
-        "sku": "JEAN-MOM-01",
-        "price": 25000,
         "variations": [
             {
                 "id": 401,
                 "user_product_id": "UPID-JEAN-36",
                 "sku": "JEAN-MOM-36",
-                "attribute_combinations": [
-                    {
-                        "id": "SIZE",
-                        "value_name": "36"
-                    }
-                ]
+                "description": "36"
             },
             {
                 "id": 402,
                 "user_product_id": "UPID-JEAN-38",
                 "sku": "JEAN-MOM-38",
-                "attribute_combinations": [
-                    {
-                        "id": "SIZE",
-                        "value_name": "38"
-                    }
-                ]
+                "description": "38"
             },
             {
                 "id": 403,
                 "user_product_id": "UPID-JEAN-40",
                 "sku": "JEAN-MOM-40",
-                "attribute_combinations": [
-                    {
-                        "id": "SIZE",
-                        "value_name": "40"
-                    }
-                ]
+                "description": "40"
             }
         ]
     },
@@ -211,31 +103,18 @@
         "id": "MLA-JEAN-MUJER-FULL",
         "title": "Jean Mujer Mom Rígido Celeste [FULL]",
         "thumbnail": "https://http2.mlstatic.com/D_765432-MLA123098_052023-I.jpg",
-        "logistic_type": "fulfillment",
-        "sku": "JEAN-MOM-01",
-        "price": 25000,
         "variations": [
             {
                 "id": 501,
                 "user_product_id": "UPID-JEAN-36-F",
                 "sku": "JEAN-MOM-36",
-                "attribute_combinations": [
-                    {
-                        "id": "SIZE",
-                        "value_name": "36"
-                    }
-                ]
+                "description": "36"
             },
             {
                 "id": 502,
                 "user_product_id": "UPID-JEAN-38-F",
                 "sku": "JEAN-MOM-38",
-                "attribute_combinations": [
-                    {
-                        "id": "SIZE",
-                        "value_name": "38"
-                    }
-                ]
+                "description": "38"
             }
         ]
     },
@@ -243,20 +122,12 @@
         "id": "MLA-MEDIAS-FLEX",
         "title": "Medias Soquetes Mujer Algodón",
         "thumbnail": "https://http2.mlstatic.com/D_999111-MLA888777_022022-I.jpg",
-        "logistic_type": "cross_docking",
-        "sku": "SOCK-WOM-01",
-        "price": 1200,
         "variations": [
             {
                 "id": 601,
                 "user_product_id": "UPID-SOCK-W-U",
                 "sku": "SOCK-W-UNI",
-                "attribute_combinations": [
-                    {
-                        "id": "SIZE",
-                        "value_name": "Unica"
-                    }
-                ]
+                "description": "Unica"
             }
         ]
     },
@@ -264,20 +135,12 @@
         "id": "MLA-MEDIAS-PACK6",
         "title": "Pack x6 Medias Soquetes Mujer",
         "thumbnail": "https://http2.mlstatic.com/D_999111-MLA888777_022022-I.jpg",
-        "logistic_type": "cross_docking",
-        "sku": "SOCK-WOM-P6",
-        "price": 6000,
         "variations": [
             {
                 "id": 701,
                 "user_product_id": "UPID-SOCK-W-U-P6",
                 "sku": "SOCK-W-UNI",
-                "attribute_combinations": [
-                    {
-                        "id": "SIZE",
-                        "value_name": "Unica"
-                    }
-                ]
+                "description": "Unica"
             }
         ]
     },
@@ -285,39 +148,18 @@
         "id": "MLA-REMERA-HOMBRE-FLEX",
         "title": "Remera Básica Hombre Algodón Peinado",
         "thumbnail": "https://http2.mlstatic.com/D_555444-MLA333222_012024-I.jpg",
-        "logistic_type": "cross_docking",
-        "sku": "REM-BAS-H",
-        "price": 8000,
         "variations": [
             {
                 "id": 801,
                 "user_product_id": "UPID-REM-B-S",
                 "sku": "REM-BLA-S",
-                "attribute_combinations": [
-                    {
-                        "id": "COLOR",
-                        "value_name": "Blanco"
-                    },
-                    {
-                        "id": "SIZE",
-                        "value_name": "S"
-                    }
-                ]
+                "description": "Blanco S"
             },
             {
                 "id": 802,
                 "user_product_id": "UPID-REM-B-M",
                 "sku": "REM-BLA-M",
-                "attribute_combinations": [
-                    {
-                        "id": "COLOR",
-                        "value_name": "Blanco"
-                    },
-                    {
-                        "id": "SIZE",
-                        "value_name": "M"
-                    }
-                ]
+                "description": "Blanco M"
             }
         ]
     },
@@ -325,24 +167,12 @@
         "id": "MLA-REMERA-HOMBRE-FULL",
         "title": "Remera Básica Hombre Algodón [FULL]",
         "thumbnail": "https://http2.mlstatic.com/D_555444-MLA333222_012024-I.jpg",
-        "logistic_type": "fulfillment",
-        "sku": "REM-BAS-H",
-        "price": 8000,
         "variations": [
             {
                 "id": 901,
                 "user_product_id": "UPID-REM-B-S-F",
                 "sku": "REM-BLA-S",
-                "attribute_combinations": [
-                    {
-                        "id": "COLOR",
-                        "value_name": "Blanco"
-                    },
-                    {
-                        "id": "SIZE",
-                        "value_name": "S"
-                    }
-                ]
+                "description": "Blanco S"
             }
         ]
     }

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
     Box,
-    Grid,
     CircularProgress,
     Alert,
     Button,
@@ -11,7 +10,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { dataService } from '../services/apiFactory';
 import type { StockRuleGroup } from '../models/types';
-import { RuleCard } from '../components/RuleCard';
+import { StockRulesTable } from '../components/StockRulesTable';
 import { DashboardToolbar } from '../components/DashboardToolbar';
 import { SearchOff as SearchOffIcon } from '@mui/icons-material';
 
@@ -44,7 +43,7 @@ export const DashboardPage: React.FC = () => {
     };
 
     const handleDeleteGroup = async (motherId: string) => {
-        if (window.confirm('¿Está seguro de que desea eliminar este enlace? Esto eliminará todas las reglas asociadas con esta publicación hija.')) {
+        if (window.confirm('¿Está seguro de que desea eliminar este enlace? Esto eliminará todas las reglas asociadas con esta publicación.')) {
             try {
                 await dataService.deleteStockRuleGroup(motherId);
                 await fetchRules();
@@ -56,7 +55,7 @@ export const DashboardPage: React.FC = () => {
     };
 
     const handleDeleteRule = async (motherId: string, childId: string) => {
-        if (window.confirm('¿Está seguro de que desea eliminar este enlace? Esto eliminará todas las reglas asociadas con esta publicación hija.')) {
+        if (window.confirm('¿Está seguro de que desea eliminar este enlace? Esto eliminará todas las reglas asociadas con esta publicación.')) {
             try {
                 await dataService.deleteStockRule(motherId, childId);
                 await fetchRules();
@@ -94,19 +93,12 @@ export const DashboardPage: React.FC = () => {
                 ) : (
                     <>
                         {filteredRules.length > 0 ? (
-                            <Grid container spacing={3}>
-                                {filteredRules.map((group) => (
-                                    // @ts-ignore
-                                    <Grid item xs={12} sm={6} md={4} lg={3} key={group.motherItemId}>
-                                        <RuleCard
-                                            ruleGroup={group}
-                                            onEditChild={handleEditChild}
-                                            onDeleteGroup={handleDeleteGroup}
-                                            onDeleteRule={handleDeleteRule}
-                                        />
-                                    </Grid>
-                                ))}
-                            </Grid>
+                            <StockRulesTable
+                                rules={filteredRules}
+                                onDeleteGroup={handleDeleteGroup}
+                                onDeleteRule={handleDeleteRule}
+                                onEdit={handleEditChild}
+                            />
                         ) : (
                             <Box sx={{
                                 display: 'flex',

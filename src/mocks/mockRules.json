@@ -1,7 +1,8 @@
 [
     {
         "motherItemId": "MLA-BOXER-FLEX",
-        "motherSku": "BOX-LIS-01",
+        "motherTitle": "Boxer Hombre Algodón Liso Premium",
+        "motherThumbnail": "https://http2.mlstatic.com/D_646049-MLA45669357945_042021-I.jpg",
         "rules": [
             {
                 "motherUserProductId": "UPID-BOX-N-S",
@@ -51,7 +52,8 @@
     },
     {
         "motherItemId": "MLA-JEAN-MUJER-FLEX",
-        "motherSku": "JEAN-MOM-01",
+        "motherTitle": "Jean Mujer Mom Rígido Celeste",
+        "motherThumbnail": "https://http2.mlstatic.com/D_765432-MLA123098_052023-I.jpg",
         "rules": [
             {
                 "motherUserProductId": "UPID-JEAN-36",
@@ -68,7 +70,8 @@
     },
     {
         "motherItemId": "MLA-MEDIAS-FLEX",
-        "motherSku": "SOCK-WOM-01",
+        "motherTitle": "Medias Soquetes Mujer Algodón",
+        "motherThumbnail": "https://http2.mlstatic.com/D_999111-MLA888777_022022-I.jpg",
         "rules": [
             {
                 "motherUserProductId": "UPID-SOCK-W-U",
