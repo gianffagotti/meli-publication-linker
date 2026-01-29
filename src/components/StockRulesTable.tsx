@@ -15,55 +15,43 @@ import {
     Chip,
     Avatar,
     Tooltip,
-    Stack
+    Stack,
+    List,
+    ListItem,
+    ListItemAvatar,
+    ListItemText
 } from '@mui/material';
 import {
     KeyboardArrowDown as KeyboardArrowDownIcon,
     KeyboardArrowUp as KeyboardArrowUpIcon,
     Edit as EditIcon,
     Delete as DeleteIcon,
-    DeleteSweep as DeleteSweepIcon,
     Inventory2 as InventoryIcon,
     BrokenImage as BrokenImageIcon
 } from '@mui/icons-material';
-import type { StockRuleGroup, StockRule } from '../models/types';
+import type { StockRule } from '../models/types';
 
 interface StockRulesTableProps {
-    rules: StockRuleGroup[];
-    onDeleteGroup: (motherId: string) => void;
-    onDeleteRule: (motherId: string, childId: string) => void;
-    onEdit: (motherId: string, childId: string) => void;
+    rules: StockRule[];
+    onDeleteRule: (targetItemId: string) => void;
+    onEdit: (targetItemId: string) => void;
 }
 
 const StockRuleRow: React.FC<{
-    row: StockRuleGroup;
-    onDeleteGroup: (motherId: string) => void;
-    onDeleteRule: (motherId: string, childId: string) => void;
-    onEdit: (motherId: string, childId: string) => void;
-}> = ({ row, onDeleteGroup, onDeleteRule, onEdit }) => {
+    row: StockRule;
+    onDeleteRule: (targetItemId: string) => void;
+    onEdit: (targetItemId: string) => void;
+}> = ({ row, onDeleteRule, onEdit }) => {
     const [open, setOpen] = useState(false);
 
-    // Group rules by childItemId to avoid duplicates in the expanded view if any
-    // Although the backend likely returns one rule per child-mother pair usually, 
-    // but let's follow the pattern in RuleCard just in case or simplify if we assume unique.
-    // The requirement says "One row = One 'Mother' publication".
-    // "Inner Table" showing "Child items".
-
-    // Let's group by childItemId like in RuleCard to be safe and consistent.
-    const childGroups = row.rules.reduce((acc, rule) => {
-        if (!acc[rule.childItemId]) {
-            acc[rule.childItemId] = {
-                childItemId: rule.childItemId,
-                childTitle: rule.childTitle,
-                childSku: rule.childSku,
-                rules: []
-            };
+    const getRuleColor = (type: string) => {
+        switch (type) {
+            case 'FULL': return 'success';
+            case 'PACK': return 'primary';
+            case 'COMBO': return 'secondary';
+            default: return 'default';
         }
-        acc[rule.childItemId].rules.push(rule);
-        return acc;
-    }, {} as Record<string, { childItemId: string, childTitle?: string, childSku?: string, rules: StockRule[] }>);
-
-    const uniqueChildren = Object.values(childGroups);
+    };
 
     return (
         <React.Fragment>
@@ -80,8 +68,8 @@ const StockRuleRow: React.FC<{
                 <TableCell component="th" scope="row" width={80}>
                     <Avatar
                         variant="rounded"
-                        src={row.motherThumbnail}
-                        alt={row.motherTitle}
+                        src={row.targetItem?.thumbnail}
+                        alt={row.targetItem?.title}
                         sx={{ width: 50, height: 50 }}
                     >
                         <BrokenImageIcon />
@@ -89,29 +77,48 @@ const StockRuleRow: React.FC<{
                 </TableCell>
                 <TableCell>
                     <Typography variant="subtitle2" component="div" sx={{ fontWeight: 'bold' }}>
-                        {row.motherTitle || 'Producto Desconocido'}
+                        {row.targetItem?.title || row.targetItemId}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                        ID: {row.motherItemId}
+                        ID: {row.targetItemId}
                     </Typography>
                 </TableCell>
                 <TableCell align="center" width={120}>
                     <Chip
-                        label={`${uniqueChildren.length} Linked`}
+                        label={row.ruleType}
                         size="small"
-                        color="primary"
+                        color={getRuleColor(row.ruleType)}
                         variant="outlined"
+                        sx={{ fontWeight: 'bold' }}
+                    />
+                </TableCell>
+                <TableCell align="center" width={120}>
+                    <Chip
+                        label="Activo"
+                        size="small"
+                        color="success"
+                        variant="filled"
+                        sx={{ height: 24, fontSize: '0.75rem' }}
                     />
                 </TableCell>
                 <TableCell align="right" width={120}>
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Tooltip title="Eliminar Grupo">
+                        <Tooltip title="Editar Regla">
                             <IconButton
                                 size="small"
-                                onClick={() => onDeleteGroup(row.motherItemId)}
+                                onClick={() => onEdit(row.targetItemId)}
+                                color="primary"
+                            >
+                                <EditIcon />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar Regla">
+                            <IconButton
+                                size="small"
+                                onClick={() => onDeleteRule(row.targetItemId)}
                                 color="error"
                             >
-                                <DeleteSweepIcon />
+                                <DeleteIcon />
                             </IconButton>
                         </Tooltip>
                     </Stack>
@@ -121,77 +128,33 @@ const StockRuleRow: React.FC<{
                 <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
                     <Collapse in={open} timeout="auto" unmountOnExit>
                         <Box sx={{ margin: 1, bgcolor: 'grey.50', borderRadius: 1, p: 2 }}>
-                            <Typography variant="h6" gutterBottom component="div">
-                                Publicaciones Hijas
+                            <Typography variant="subtitle2" gutterBottom component="div" color="text.secondary">
+                                Receta / Componentes
                             </Typography>
-                            <Table size="small" aria-label="purchases">
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell width={60}>Img</TableCell>
-                                        <TableCell>Título</TableCell>
-                                        <TableCell>Tipo</TableCell>
-                                        <TableCell align="right">Regla (N:1)</TableCell>
-                                        <TableCell align="right">Acciones</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {uniqueChildren.map((childGroup) => (
-                                        <TableRow key={childGroup.childItemId}>
-                                            <TableCell component="th" scope="row">
-                                                <Avatar
-                                                    sx={{ width: 32, height: 32, bgcolor: 'grey.200' }}
-                                                >
-                                                    <InventoryIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                            <List dense>
+                                {row.components.map((comp) => {
+                                    // Try to find hydrated details if available
+                                    const details = row.sourceItems?.find(i => i.id === comp.sourceItemId);
+                                    return (
+                                        <ListItem key={comp.sourceItemId}>
+                                            <ListItemAvatar>
+                                                <Avatar src={details?.thumbnail} variant="rounded">
+                                                    <InventoryIcon />
                                                 </Avatar>
-                                            </TableCell>
-                                            <TableCell>{childGroup.childTitle || 'Desconocido'}</TableCell>
-                                            <TableCell>
-                                                {(() => {
-                                                    const totalQuantity = childGroup.rules.length;
-                                                    const ruleType = childGroup.rules.length > 0 ? childGroup.rules[0].type : '';
-
-                                                    return (
-                                                        <Chip
-                                                            label={`${totalQuantity} ${ruleType}`}
-                                                            size="small"
-                                                            color={ruleType === 'FULL' ? 'primary' : 'secondary'}
-                                                            variant="outlined"
-                                                            sx={{ height: 24, fontSize: '0.75rem', fontWeight: 'bold' }}
-                                                        />
-                                                    );
-                                                })()}
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Stack direction="column" spacing={0.5} alignItems="flex-end">
-                                                    <Typography variant="caption" display="block">
-                                                        x{childGroup.rules[0].packQuantity || '-'}
-                                                    </Typography>
-                                                </Stack>
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Tooltip title="Editar Regla">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => onEdit(row.motherItemId, childGroup.childItemId)}
-                                                        sx={{ color: 'primary.main' }}
-                                                    >
-                                                        <EditIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Tooltip>
-                                                <Tooltip title="Desvincular (Eliminar Regla)">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => onDeleteRule(row.motherItemId, childGroup.childItemId)}
-                                                        sx={{ color: 'error.main' }}
-                                                    >
-                                                        <DeleteIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                            </ListItemAvatar>
+                                            <ListItemText
+                                                primary={details?.title || comp.sourceItemId}
+                                                secondary={`ID: ${comp.sourceItemId} | SKU: ${details?.variations?.[0]?.sku || 'N/A'}`}
+                                            />
+                                            <Chip
+                                                label={`x${comp.quantity}`}
+                                                size="small"
+                                                sx={{ fontWeight: 'bold' }}
+                                            />
+                                        </ListItem>
+                                    );
+                                })}
+                            </List>
                         </Box>
                     </Collapse>
                 </TableCell>
@@ -202,15 +165,13 @@ const StockRuleRow: React.FC<{
 
 export const StockRulesTable: React.FC<StockRulesTableProps> = ({
     rules,
-    onDeleteGroup,
     onDeleteRule,
     onEdit
 }) => {
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
-    const handleChangePage = (event: unknown, newPage: number) => {
-        console.log(event);
+    const handleChangePage = (_: unknown, newPage: number) => {
         setPage(newPage);
     };
 
@@ -236,17 +197,17 @@ export const StockRulesTable: React.FC<StockRulesTableProps> = ({
                         <TableRow>
                             <TableCell width={50} />
                             <TableCell width={80}>Imagen</TableCell>
-                            <TableCell>Publicación Madre</TableCell>
-                            <TableCell align="center" width={120}>Vínculos</TableCell>
+                            <TableCell>Publicación Objetivo (Combo/Pack)</TableCell>
+                            <TableCell align="center" width={120}>Tipo</TableCell>
+                            <TableCell align="center" width={120}>Estado</TableCell>
                             <TableCell align="right" width={120}>Acciones</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {visibleRules.map((row) => (
                             <StockRuleRow
-                                key={row.motherItemId}
+                                key={row.targetItemId}
                                 row={row}
-                                onDeleteGroup={onDeleteGroup}
                                 onDeleteRule={onDeleteRule}
                                 onEdit={onEdit}
                             />

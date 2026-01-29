@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { IDataService } from './IDataService';
-import type { MeliItem, StockRuleGroup } from '../models/types';
+import type { MeliItem, StockRule } from '../models/types';
 
 export class ApiDataService implements IDataService {
     async searchItems(query: string): Promise<MeliItem[]> {
@@ -13,20 +13,16 @@ export class ApiDataService implements IDataService {
         return response.data;
     }
 
-    async getStockRules(): Promise<StockRuleGroup[]> {
+    async getStockRules(): Promise<StockRule[]> {
         const response = await axios.get(`/api/rules`);
         return Array.isArray(response.data) ? response.data : [];
     }
 
-    async saveStockRule(rule: StockRuleGroup): Promise<void> {
+    async saveStockRule(rule: StockRule): Promise<void> {
         await axios.post(`/api/rules`, rule);
     }
 
-    async deleteStockRule(motherId: string, childId: string): Promise<void> {
-        await axios.delete(`/api/rules/${motherId}/${childId}`);
-    }
-
-    async deleteStockRuleGroup(motherItemId: string): Promise<void> {
-        await axios.delete(`/api/rules-group/${motherItemId}`);
+    async deleteStockRule(targetItemId: string): Promise<void> {
+        await axios.delete(`/api/rules/${targetItemId}`);
     }
 }

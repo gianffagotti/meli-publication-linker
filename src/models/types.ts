@@ -12,21 +12,26 @@ export interface MeliItem {
   thumbnail?: string;
 }
 
-export interface StockRule {
-  motherUserProductId: string;
-  childUserProductId: string;
-  type: 'FULL' | 'PACK';
-  packQuantity: number;
-  motherItemId: string;
-  childItemId: string;
-  active: boolean;
-  childSku?: string;
-  childTitle?: string;
+export type RuleType = 'FULL' | 'PACK' | 'COMBO';
+
+export interface RuleComponent {
+  sourceItemId: string; // The component (Ingredient)
+  quantity: number;
 }
 
-export interface StockRuleGroup {
-  motherItemId: string;
-  rules: StockRule[];
-  motherTitle?: string;
-  motherThumbnail?: string;
+export interface VariantMapping {
+  targetVariantId: string;
+  // Key: SourceItemId, Value: SourceVariantId
+  sourceMatches: { [sourceItemId: string]: string };
+}
+
+export interface StockRule {
+  sellerId?: string;
+  targetItemId: string; // The Combo/Pack Item ID
+  ruleType: RuleType;
+  components: RuleComponent[];
+  mappings: VariantMapping[];
+  // Hydrated Data (Optional, for UI display)
+  targetItem?: MeliItem;
+  sourceItems?: MeliItem[];
 }

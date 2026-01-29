@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     Box,
     Grid,
@@ -18,404 +18,478 @@ import {
     TextField,
     Button,
     Alert,
-    CircularProgress,
     FormControl,
     Radio,
     RadioGroup,
     FormControlLabel,
-    FormLabel
+    Stepper,
+    Step,
+    StepLabel,
+    IconButton,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemSecondaryAction,
+    Divider,
+    Chip,
+    Avatar
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ItemSearch } from '../components/Shared/ItemSearch';
 import { dataService } from '../services/apiFactory';
-import type { MeliItem, StockRule, StockRuleGroup } from '../models/types';
+import type { MeliItem, StockRule, RuleType, RuleComponent, VariantMapping } from '../models/types';
+
+const STEPS = ['Seleccionar Objetivo', 'Definir Componentes', 'Mapear Variantes'];
 
 export const RuleEditorPage: React.FC = () => {
     const navigate = useNavigate();
-    const { motherId, childId } = useParams<{ motherId: string; childId: string }>(); // For edit mode
-
-    const [selectedMother, setSelectedMother] = useState<MeliItem | null>(null);
-    const [selectedChild, setSelectedChild] = useState<MeliItem | null>(null);
-    const [loadingMother, setLoadingMother] = useState(false);
-    const [loadingChild, setLoadingChild] = useState(false);
-
-    // Global Configuration State
-    const [childType, setChildType] = useState<'PACK' | 'FULL'>('PACK');
-    const [globalQuantity, setGlobalQuantity] = useState<number>(3);
-
-    const [rules, setRules] = useState<StockRule[]>([]);
-    const [existingRules, setExistingRules] = useState<StockRule[] | null>(null);
-    const [saving, setSaving] = useState(false);
+    const [activeStep, setActiveStep] = useState(0);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Fetch full details when a mother item is selected
-    const handleMotherSelect = async (item: MeliItem | null) => {
-        if (!item) {
-            setSelectedMother(null);
-            setRules([]);
+    // --- State: Step 1 (Target) ---
+    const [ruleType, setRuleType] = useState<RuleType>('PACK');
+    const [targetItem, setTargetItem] = useState<MeliItem | null>(null);
+
+    // --- State: Step 2 (Components) ---
+    const [components, setComponents] = useState<RuleComponent[]>([]);
+    // We need full item details for sources to render Step 3, so we store them here
+    const [sourceItemsDetails, setSourceItemsDetails] = useState<MeliItem[]>([]);
+
+    // --- State: Step 3 (Mapping) ---
+    // Key: targetVariantId, Value: { sourceItemId: sourceVariantId }
+    const [mappings, setMappings] = useState<VariantMapping[]>([]);
+    // Hydrated details for Target (fetched on entering Step 3)
+    const [targetItemDetails, setTargetItemDetails] = useState<MeliItem | null>(null);
+
+    // --- Handlers: Step 1 ---
+    const handleTargetSelect = (item: MeliItem | null) => {
+        setTargetItem(item);
+        // Reset subsequent steps if target changes
+        setComponents([]);
+        setSourceItemsDetails([]);
+        setMappings([]);
+        setTargetItemDetails(null);
+    };
+
+    // --- Handlers: Step 2 ---
+    const handleAddSource = async (item: MeliItem | null) => {
+        if (!item) return;
+
+        // Validation: FULL/PACK allow only 1 source
+        if ((ruleType === 'FULL' || ruleType === 'PACK') && components.length >= 1) {
+            setError(`Las reglas tipo ${ruleType} solo pueden tener 1 componente.`);
             return;
         }
-        setLoadingMother(true);
+
+        // Check duplicate
+        if (components.some(c => c.sourceItemId === item.id)) {
+            setError('Este componente ya ha sido agregado.');
+            return;
+        }
+
+        setError(null);
+        setLoading(true);
         try {
+            // Fetch full details immediately to have them ready
             const fullItem = await dataService.getItemDetails(item.id);
-            setSelectedMother(fullItem);
-            setSelectedMother(fullItem);
-            // Reset child and rules when mother changes
-            setSelectedChild(null);
-            setRules([]);
-            setExistingRules(null);
+
+            setComponents([...components, { sourceItemId: item.id, quantity: 1 }]);
+            setSourceItemsDetails([...sourceItemsDetails, fullItem]);
         } catch (err) {
             console.error(err);
-            setError('Error al cargar los detalles del artículo Madre');
+            setError('Error al cargar detalles del componente.');
         } finally {
-            setLoadingMother(false);
+            setLoading(false);
         }
     };
 
-    // Fetch full details when a child item is selected
-    const handleChildSelect = async (item: MeliItem | null) => {
-        if (!item) {
-            setSelectedChild(null);
-            setRules([]);
-            return;
-        }
-        setLoadingChild(true);
-        try {
-            const fullItem = await dataService.getItemDetails(item.id);
-            setSelectedChild(fullItem);
-        } catch (err) {
-            console.error(err);
-            setError('Error al cargar los detalles del artículo Hijo');
-        } finally {
-            setLoadingChild(false);
-        }
+    const handleRemoveSource = (itemId: string) => {
+        setComponents(components.filter(c => c.sourceItemId !== itemId));
+        setSourceItemsDetails(sourceItemsDetails.filter(i => i.id !== itemId));
     };
 
-    // Auto-match logic
-    useEffect(() => {
-        if (selectedMother && selectedChild) {
-            const newRules: StockRule[] = selectedMother.variations.map(mVar => {
-                // Check if we have an existing rule for this variation
-                if (existingRules) {
-                    const savedRule = existingRules.find(r => r.motherUserProductId === mVar.user_product_id);
-                    if (savedRule) {
-                        return {
-                            ...savedRule,
-                            motherItemId: selectedMother.id,
-                            childItemId: selectedChild.id
-                        };
-                    }
-                }
+    const handleQuantityChange = (itemId: string, qty: number) => {
+        setComponents(components.map(c =>
+            c.sourceItemId === itemId ? { ...c, quantity: qty } : c
+        ));
+    };
 
-                // Try to find a matching child variation by SKU
-                const matchingChildVar = selectedChild.variations.find(cVar =>
-                    cVar.sku === mVar.sku ||
-                    (cVar.sku && mVar.sku && cVar.sku.toLowerCase() === mVar.sku.toLowerCase())
-                );
+    // --- Handlers: Step 3 ---
+    // Helper to generate "Surtido" / Grouped options
+    const getSourceOptions = (sourceItem: MeliItem) => {
+        const options: { value: string; label: string; isGroup?: boolean }[] = [];
 
-                return {
-                    motherUserProductId: mVar.user_product_id,
-                    childUserProductId: matchingChildVar ? matchingChildVar.user_product_id : '',
-                    // These will be overridden by global state on save, but we keep them in structure for now
-                    type: childType,
-                    packQuantity: globalQuantity,
-                    motherItemId: selectedMother.id,
-                    childItemId: selectedChild.id,
-                    active: true
-                };
+        // 1. Individual Variants
+        sourceItem.variations.forEach(v => {
+            options.push({
+                value: v.id.toString(),
+                label: `${v.sku || 'Sin SKU'} - ${v.description || 'Sin Desc'}`,
+                isGroup: false
             });
-            setRules(newRules);
+        });
+
+        // 2. Grouped Options (Surtido Logic)
+        // Simple heuristic: Group by "Size" if description contains typical size patterns or attributes
+        // For now, let's assume description is "Color Size" or similar.
+        // We will try to extract the "Size" part.
+        // A more robust way would be to use structured attributes if available in MeliItem (not currently in our interface).
+        // Let's implement a basic "By Size" grouping assuming the last word is size if > 1 word.
+
+        const sizeGroups: { [size: string]: string[] } = {};
+
+        sourceItem.variations.forEach(v => {
+            if (!v.description) return;
+            const parts = v.description.split(' ');
+            if (parts.length > 1) {
+                const size = parts[parts.length - 1]; // Assume last part is size
+                if (!sizeGroups[size]) sizeGroups[size] = [];
+                sizeGroups[size].push(v.id.toString());
+            }
+        });
+
+        Object.keys(sizeGroups).forEach(size => {
+            // Only add group if it covers more than 1 variant
+            if (sizeGroups[size].length > 1) {
+                options.push({
+                    value: `GROUP:SIZE:${size}`,
+                    label: `Cualquier Color - Talle ${size}`,
+                    isGroup: true
+                });
+            }
+        });
+
+        return options;
+    };
+
+    const handleMappingChange = (targetVarId: string, sourceItemId: string, sourceVarId: string) => {
+        const newMappings = [...mappings];
+        let mappingIndex = newMappings.findIndex(m => m.targetVariantId === targetVarId);
+
+        if (mappingIndex === -1) {
+            // Create new mapping entry
+            newMappings.push({
+                targetVariantId: targetVarId,
+                sourceMatches: { [sourceItemId]: sourceVarId }
+            });
+        } else {
+            // Update existing
+            newMappings[mappingIndex] = {
+                ...newMappings[mappingIndex],
+                sourceMatches: {
+                    ...newMappings[mappingIndex].sourceMatches,
+                    [sourceItemId]: sourceVarId
+                }
+            };
         }
-    }, [selectedMother, selectedChild, existingRules]); // We don't re-run on childType/globalQuantity change to avoid resetting manual matches
+        setMappings(newMappings);
+    };
 
-    // Load existing rule if in edit mode
-    useEffect(() => {
-        const loadExistingRule = async () => {
-            if (!motherId || !childId) return;
+    const getMappedValue = (targetVarId: string, sourceItemId: string): string => {
+        const mapping = mappings.find(m => m.targetVariantId === targetVarId);
+        return mapping?.sourceMatches?.[sourceItemId] || '';
+    };
 
+    // --- Navigation Handlers ---
+    const handleNext = async () => {
+        if (activeStep === 0) {
+            if (!targetItem) {
+                setError('Seleccione un artículo objetivo.');
+                return;
+            }
+        }
+
+        if (activeStep === 1) {
+            if (components.length === 0) {
+                setError('Agregue al menos un componente.');
+                return;
+            }
+            // Fetch target details before moving to Step 3
+            setLoading(true);
             try {
-                setLoadingMother(true);
-                setLoadingChild(true);
+                const details = await dataService.getItemDetails(targetItem!.id);
+                setTargetItemDetails(details);
 
-                // Load Mother and Child in parallel
-                const [mother, child, allGroups] = await Promise.all([
-                    dataService.getItemDetails(motherId),
-                    dataService.getItemDetails(childId),
-                    dataService.getStockRules()
-                ]);
-
-                setSelectedMother(mother);
-                setSelectedChild(child);
-
-                const group = allGroups.find(g => g.motherItemId === motherId);
-
-                if (group && group.rules.length > 0) {
-                    // Find the rule specifically for this child if possible, or default to first
-                    // In the current data model, a group is by mother, and rules list children.
-                    // We should find the rule corresponding to this childId.
-                    const ruleForChild = group.rules.find(r => r.childItemId === childId) || group.rules[0];
-
-                    // Set Config
-                    setChildType(ruleForChild.type);
-                    setGlobalQuantity(ruleForChild.packQuantity);
-
-                    // Set Existing Rules for the auto-match effect to pick up
-                    setExistingRules(group.rules);
+                // Initialize mappings if empty
+                if (mappings.length === 0) {
+                    // Auto-match logic could go here (e.g. by SKU)
+                    // For now, start empty
                 }
             } catch (err) {
                 console.error(err);
-                setError('Error al cargar las reglas existentes');
+                setError('Error al cargar detalles del objetivo.');
+                setLoading(false);
+                return;
             } finally {
-                setLoadingMother(false);
-                setLoadingChild(false);
+                setLoading(false);
             }
-        };
+        }
 
-        loadExistingRule();
-    }, [motherId, childId]);
+        setError(null);
+        setActiveStep((prev) => prev + 1);
+    };
 
-    const handleRuleChange = (index: number, field: keyof StockRule, value: any) => {
-        const updatedRules = [...rules];
-        updatedRules[index] = { ...updatedRules[index], [field]: value };
-        setRules(updatedRules);
+    const handleBack = () => {
+        setActiveStep((prev) => prev - 1);
     };
 
     const handleSave = async () => {
-        if (!selectedMother) return;
-        if (!selectedChild) return;
+        if (!targetItem) return;
 
-        setSaving(true);
-        setError(null);
-
+        setLoading(true);
         try {
-            // Apply global configuration to all rules being saved
-            const finalRules = rules
-                .filter(r => r.childUserProductId) // Only save rules with a mapped child
-                .map(r => ({
-                    ...r,
-                    type: childType,
-                    packQuantity: childType === 'PACK' ? globalQuantity : 1,
-                    childTitle: selectedChild.title
-                }));
-
-            const ruleGroup: StockRuleGroup = {
-                motherItemId: selectedMother.id,
-                rules: finalRules,
-                motherTitle: selectedMother.title,
-                motherThumbnail: selectedMother.thumbnail
+            const rule: StockRule = {
+                targetItemId: targetItem.id,
+                ruleType,
+                components,
+                mappings
             };
 
-            await dataService.saveStockRule(ruleGroup);
+            await dataService.saveStockRule(rule);
             navigate('/');
         } catch (err) {
             console.error(err);
-            setError('Error al guardar las reglas');
+            setError('Error al guardar la regla.');
         } finally {
-            setSaving(false);
+            setLoading(false);
         }
     };
 
-    return (
-        <Box sx={{ p: 3 }}>
-            <Box sx={{ mb: 2 }}>
-                <Button
-                    startIcon={<ArrowBackIcon />}
-                    onClick={() => navigate('/')}
-                    variant="text"
-                    sx={{ mb: 1 }}
-                >
-                    Volver al Dashboard
-                </Button>
-            </Box>
-            <Typography variant="h4" gutterBottom sx={{ mb: 4 }}>
-                {motherId ? 'Editar Regla' : 'Nueva Regla'}
-            </Typography>
+    // --- Render Steps ---
 
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-            <Grid container spacing={4}>
-                {/* Left Panel: Mother Selection */}
-                {/* @ts-ignore */}
-                <Grid item xs={12} md={6}>
-                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                        <CardContent>
-                            <Typography variant="h6" gutterBottom color="primary">1. Seleccionar Origen (Madre)</Typography>
-                            <Box sx={{ mb: 2 }}>
-                                <ItemSearch label="Buscar Publicación Madre..." onSelect={handleMotherSelect} />
-                            </Box>
-
-                            {loadingMother && <CircularProgress sx={{ mt: 2 }} />}
-
-                            {selectedMother && (
-                                <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-                                    <CardMedia
-                                        component="img"
-                                        sx={{ width: 100, height: 100, objectFit: 'contain', borderRadius: 1, border: '1px solid #eee' }}
-                                        image={selectedMother.thumbnail}
-                                        alt={selectedMother.title}
-                                    />
-                                    <Box>
-                                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>{selectedMother.title}</Typography>
-                                        <Typography variant="body2" color="text.secondary">
-                                            ID: {selectedMother.id} <br />
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                            )}
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* Right Panel: Child Selection & Config */}
-                {/* @ts-ignore */}
-                <Grid item xs={12} md={6}>
-                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                        <CardContent>
-                            <Typography variant="h6" gutterBottom color="primary">2. Seleccionar Destino (Hija) y Configurar</Typography>
-
-                            {selectedMother ? (
-                                <>
-                                    <Box sx={{ mb: 2 }}>
-                                        <ItemSearch label="Buscar Publicación Hija..." onSelect={handleChildSelect} />
-                                    </Box>
-
-                                    {loadingChild && <CircularProgress sx={{ mt: 2 }} />}
-
-                                    {selectedChild && (
-                                        <>
-                                            <Box sx={{ mt: 2, mb: 3, display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-                                                <CardMedia
-                                                    component="img"
-                                                    sx={{ width: 100, height: 100, objectFit: 'contain', borderRadius: 1, border: '1px solid #eee' }}
-                                                    image={selectedChild.thumbnail}
-                                                    alt={selectedChild.title}
-                                                />
-                                                <Box>
-                                                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>{selectedChild.title}</Typography>
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        ID: {selectedChild.id} <br />
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-
-                                            <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid #eee' }}>
-                                                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>Configuración de la Relación</Typography>
-
-                                                <FormControl component="fieldset">
-                                                    <FormLabel component="legend">Tipo de Relación</FormLabel>
-                                                    <RadioGroup
-                                                        row
-                                                        aria-label="child-type"
-                                                        name="child-type"
-                                                        value={childType}
-                                                        onChange={(e) => setChildType(e.target.value as 'PACK' | 'FULL')}
-                                                    >
-                                                        <FormControlLabel value="PACK" control={<Radio />} label="PACK (N:1)" />
-                                                        <FormControlLabel value="FULL" control={<Radio />} label="FULL (1:1)" />
-                                                    </RadioGroup>
-                                                </FormControl>
-
-                                                {childType === 'PACK' && (
-                                                    <Box sx={{ mt: 2 }}>
-                                                        <TextField
-                                                            label="Cantidad por Pack"
-                                                            type="number"
-                                                            variant="outlined"
-                                                            size="small"
-                                                            value={globalQuantity}
-                                                            onChange={(e) => setGlobalQuantity(parseInt(e.target.value, 10) || 0)}
-                                                            inputProps={{ min: 1 }}
-                                                            helperText="Cuántas unidades de la Madre forman 1 unidad de la Hija?"
-                                                        />
-                                                    </Box>
-                                                )}
-                                            </Box>
-                                        </>
-                                    )}
-                                </>
-                            ) : (
-                                <Alert severity="info" variant="outlined">
-                                    Por favor seleccione una publicación Madre primero.
-                                </Alert>
-                            )}
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
-
-            {/* Matching Table */}
-            {selectedMother && selectedChild && (
-                <Card sx={{ mt: 4 }}>
+    const renderStep1 = () => (
+        <Grid container spacing={3}>
+            {/* @ts-ignore */}
+            <Grid item xs={12} md={6}>
+                <Card variant="outlined">
                     <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h6">Variantes</Typography>
-                            <Typography variant="subtitle2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                                Relacionando variantes como: <strong>{childType === 'PACK' ? `PACK x${globalQuantity}` : 'FULL (1:1)'}</strong>
-                            </Typography>
-                        </Box>
-
-                        <TableContainer component={Paper} elevation={0} variant="outlined">
-                            <Table>
-                                <TableHead sx={{ bgcolor: '#f5f5f5' }}>
-                                    <TableRow>
-                                        <TableCell>Variante Madre (Origen)</TableCell>
-                                        <TableCell>Variante Hija (Destino)</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {selectedMother.variations.map((mVar, index) => {
-                                        const rule = rules[index] || {};
-                                        return (
-                                            <TableRow key={mVar.id}>
-                                                <TableCell sx={{ width: '50%' }}>
-                                                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                                                        {mVar.sku || 'Sin SKU'}
-                                                    </Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        Desc: {mVar.description}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell sx={{ width: '50%' }}>
-                                                    <FormControl fullWidth size="small">
-                                                        <Select
-                                                            value={rule.childUserProductId || ''}
-                                                            onChange={(e) => handleRuleChange(index, 'childUserProductId', e.target.value)}
-                                                            displayEmpty
-                                                        >
-                                                            <MenuItem value="">
-                                                                <em>Sin Asignar</em>
-                                                            </MenuItem>
-                                                            {selectedChild.variations.map(cVar => (
-                                                                <MenuItem key={cVar.id} value={cVar.user_product_id}>
-                                                                    {cVar.sku || 'Sin SKU'} (Desc: {cVar.description})
-                                                                </MenuItem>
-                                                            ))}
-                                                        </Select>
-                                                    </FormControl>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-
-                        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                size="large"
-                                onClick={handleSave}
-                                disabled={saving}
-                                sx={{ minWidth: 150 }}
+                        <Typography variant="h6" gutterBottom>1. Tipo de Regla</Typography>
+                        <FormControl component="fieldset">
+                            <RadioGroup
+                                value={ruleType}
+                                onChange={(e) => setRuleType(e.target.value as RuleType)}
                             >
-                                {saving ? 'Guardando...' : 'Guardar Reglas'}
-                            </Button>
-                        </Box>
+                                <FormControlLabel value="PACK" control={<Radio />} label="PACK (Mismo producto x Cantidad)" />
+                                <FormControlLabel value="FULL" control={<Radio />} label="FULL (1 a 1 directo)" />
+                                <FormControlLabel value="COMBO" control={<Radio />} label="COMBO (Múltiples productos distintos)" />
+                            </RadioGroup>
+                        </FormControl>
                     </CardContent>
                 </Card>
-            )}
+            </Grid>
+            {/* @ts-ignore */}
+            <Grid item xs={12} md={6}>
+                <Card variant="outlined">
+                    <CardContent>
+                        <Typography variant="h6" gutterBottom>2. Artículo Objetivo (Publicación)</Typography>
+                        <ItemSearch label="Buscar Publicación a controlar..." onSelect={handleTargetSelect} />
+
+                        {targetItem && (
+                            <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+                                <CardMedia
+                                    component="img"
+                                    sx={{ width: 80, height: 80, objectFit: 'contain', borderRadius: 1, border: '1px solid #eee' }}
+                                    image={targetItem.thumbnail}
+                                    alt={targetItem.title}
+                                />
+                                <Box>
+                                    <Typography variant="subtitle2" fontWeight="bold">{targetItem.title}</Typography>
+                                    <Typography variant="caption" color="text.secondary">{targetItem.id}</Typography>
+                                </Box>
+                            </Box>
+                        )}
+                    </CardContent>
+                </Card>
+            </Grid>
+        </Grid>
+    );
+
+    const renderStep2 = () => (
+        <Grid container spacing={3}>
+            {/* @ts-ignore */}
+            <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom>
+                    Componentes para: <strong>{targetItem?.title}</strong>
+                </Typography>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                    {ruleType === 'PACK' && 'Seleccione el producto unitario y defina la cantidad por pack.'}
+                    {ruleType === 'FULL' && 'Seleccione el producto equivalente (1 a 1).'}
+                    {ruleType === 'COMBO' && 'Agregue todos los productos que componen el combo.'}
+                </Alert>
+
+                <Box sx={{ mb: 3 }}>
+                    <ItemSearch label="Agregar Componente (Ingrediente)..." onSelect={handleAddSource} />
+                </Box>
+
+                <Paper variant="outlined">
+                    <List>
+                        {components.map((comp, index) => {
+                            const details = sourceItemsDetails.find(i => i.id === comp.sourceItemId);
+                            return (
+                                <React.Fragment key={comp.sourceItemId}>
+                                    <ListItem>
+                                        <Box sx={{ mr: 2 }}>
+                                            <Avatar src={details?.thumbnail} variant="rounded" />
+                                        </Box>
+                                        <ListItemText
+                                            primary={details?.title || comp.sourceItemId}
+                                            secondary={`ID: ${comp.sourceItemId}`}
+                                        />
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+                                            <TextField
+                                                label="Cantidad"
+                                                type="number"
+                                                size="small"
+                                                value={comp.quantity}
+                                                onChange={(e) => handleQuantityChange(comp.sourceItemId, parseInt(e.target.value) || 1)}
+                                                sx={{ width: 100 }}
+                                                inputProps={{ min: 1 }}
+                                            />
+                                        </Box>
+                                        <ListItemSecondaryAction>
+                                            <IconButton edge="end" aria-label="delete" onClick={() => handleRemoveSource(comp.sourceItemId)}>
+                                                <DeleteIcon />
+                                            </IconButton>
+                                        </ListItemSecondaryAction>
+                                    </ListItem>
+                                    {index < components.length - 1 && <Divider />}
+                                </React.Fragment>
+                            );
+                        })}
+                        {components.length === 0 && (
+                            <ListItem>
+                                <ListItemText primary="No hay componentes agregados." sx={{ color: 'text.secondary', textAlign: 'center' }} />
+                            </ListItem>
+                        )}
+                    </List>
+                </Paper>
+            </Grid>
+        </Grid>
+    );
+
+    const renderStep3 = () => (
+        <Box>
+            <Typography variant="h6" gutterBottom>Matriz de Variantes</Typography>
+            <Typography variant="body2" color="text.secondary" paragraph>
+                Relacione cada variante del objetivo con las variantes de los componentes.
+            </Typography>
+
+            <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                    <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                        <TableRow>
+                            <TableCell><strong>Variante Objetivo</strong></TableCell>
+                            {components.map(comp => {
+                                const details = sourceItemsDetails.find(i => i.id === comp.sourceItemId);
+                                return (
+                                    <TableCell key={comp.sourceItemId}>
+                                        <strong>{details?.title?.substring(0, 30)}...</strong>
+                                        <br />
+                                        <Typography variant="caption">(Qty: {comp.quantity})</Typography>
+                                    </TableCell>
+                                );
+                            })}
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {targetItemDetails?.variations.map(targetVar => (
+                            <TableRow key={targetVar.id}>
+                                <TableCell>
+                                    <Typography variant="body2" fontWeight="medium">
+                                        {targetVar.description}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {targetVar.sku || 'No SKU'}
+                                    </Typography>
+                                </TableCell>
+                                {components.map(comp => {
+                                    const details = sourceItemsDetails.find(i => i.id === comp.sourceItemId);
+                                    if (!details) return <TableCell key={comp.sourceItemId}>Error</TableCell>;
+
+                                    const options = getSourceOptions(details);
+
+                                    return (
+                                        <TableCell key={comp.sourceItemId}>
+                                            <FormControl fullWidth size="small">
+                                                <Select
+                                                    value={getMappedValue(targetVar.id.toString(), comp.sourceItemId)}
+                                                    onChange={(e) => handleMappingChange(targetVar.id.toString(), comp.sourceItemId, e.target.value)}
+                                                    displayEmpty
+                                                >
+                                                    <MenuItem value=""><em>Sin Asignar</em></MenuItem>
+                                                    {options.map(opt => (
+                                                        <MenuItem key={opt.value} value={opt.value}>
+                                                            {opt.isGroup && <Chip label="Grupo" size="small" color="info" sx={{ mr: 1, height: 20 }} />}
+                                                            {opt.label}
+                                                        </MenuItem>
+                                                    ))}
+                                                </Select>
+                                            </FormControl>
+                                        </TableCell>
+                                    );
+                                })}
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        </Box>
+    );
+
+    return (
+        <Box sx={{ p: 3, maxWidth: 1200, margin: '0 auto' }}>
+            <Box sx={{ mb: 2 }}>
+                <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/')}>
+                    Volver
+                </Button>
+            </Box>
+
+            <Paper sx={{ p: 3, mb: 3 }}>
+                <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+                    {STEPS.map((label) => (
+                        <Step key={label}>
+                            <StepLabel>{label}</StepLabel>
+                        </Step>
+                    ))}
+                </Stepper>
+
+                {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>{error}</Alert>}
+
+                <Box sx={{ minHeight: 300 }}>
+                    {activeStep === 0 && renderStep1()}
+                    {activeStep === 1 && renderStep2()}
+                    {activeStep === 2 && renderStep3()}
+                </Box>
+
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4, pt: 2, borderTop: '1px solid #eee' }}>
+                    <Button
+                        disabled={activeStep === 0}
+                        onClick={handleBack}
+                        sx={{ mr: 1 }}
+                    >
+                        Atrás
+                    </Button>
+                    {activeStep === STEPS.length - 1 ? (
+                        <Button
+                            variant="contained"
+                            onClick={handleSave}
+                            disabled={loading}
+                        >
+                            {loading ? 'Guardando...' : 'Guardar Regla'}
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="contained"
+                            onClick={handleNext}
+                            disabled={loading}
+                        >
+                            Siguiente
+                        </Button>
+                    )}
+                </Box>
+            </Paper>
         </Box>
     );
 };
