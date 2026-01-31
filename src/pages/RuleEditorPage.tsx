@@ -153,7 +153,10 @@ export const RuleEditorPage: React.FC = () => {
             // Fetch full details immediately to have them ready
             const fullItem = await dataService.getItemDetails(item.id);
 
-            setComponents([...components, { sourceItemId: item.id, quantity: 1 }]);
+            let defaultQty = 1;
+            if (ruleType === 'PACK') defaultQty = 3;
+
+            setComponents([...components, { sourceItemId: item.id, quantity: defaultQty }]);
             setSourceItemsDetails([...sourceItemsDetails, fullItem]);
         } catch (err) {
             console.error(err);
@@ -270,9 +273,44 @@ export const RuleEditorPage: React.FC = () => {
                 setTargetItemDetails(details);
 
                 // Initialize mappings if empty
-                if (mappings.length === 0) {
-                    // Auto-match logic could go here (e.g. by SKU)
-                    // For now, start empty
+                if (mappings.length === 0 && details && details.variations) {
+                    const newMappings: VariantMapping[] = [];
+
+                    details.variations.forEach(targetVar => {
+                        const sourceMatches: { [sourceItemId: string]: string } = {};
+
+                        // For each component, try to find a match by SKU
+                        components.forEach(comp => {
+                            const sourceDetail = sourceItemsDetails.find(s => s.id === comp.sourceItemId);
+                            if (sourceDetail) {
+                                // Try direct SKU match first
+                                const match = sourceDetail.variations.find(sv =>
+                                    sv.sku && targetVar.sku && sv.sku === targetVar.sku
+                                );
+
+                                if (match) {
+                                    sourceMatches[comp.sourceItemId] = match.id.toString();
+                                } else {
+                                    // Default: 'Sin Asignar' (which is just missing key or empty string)
+                                }
+                            }
+                        });
+
+                        // Only add if we found some matches? Or always add to initialize structure?
+                        // Let's initialize structure so we have the rows ready, even if empty.
+                        // Actually the UI derives rows from targetItemDetails if mapping is missing, 
+                        // but pre-filling 'mappings' state is good for persistence.
+                        if (Object.keys(sourceMatches).length > 0) {
+                            newMappings.push({
+                                targetVariantId: targetVar.id.toString(),
+                                sourceMatches
+                            });
+                        }
+                    });
+
+                    if (newMappings.length > 0) {
+                        setMappings(newMappings);
+                    }
                 }
             } catch (err) {
                 console.error(err);
@@ -377,7 +415,7 @@ export const RuleEditorPage: React.FC = () => {
                 </Alert>
 
                 <Box sx={{ mb: 3 }}>
-                    <ItemSearch label="Agregar Componente (Ingrediente)..." onSelect={handleAddSource} />
+                    <ItemSearch label="Agregar Componente ..." onSelect={handleAddSource} />
                 </Box>
 
                 <Paper variant="outlined">
@@ -402,6 +440,7 @@ export const RuleEditorPage: React.FC = () => {
                                                 value={comp.quantity}
                                                 onChange={(e) => handleQuantityChange(comp.sourceItemId, parseInt(e.target.value) || 1)}
                                                 sx={{ width: 100 }}
+                                                disabled={ruleType === 'FULL'}
                                                 inputProps={{ min: 1 }}
                                             />
                                         </Box>
