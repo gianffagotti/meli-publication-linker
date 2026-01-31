@@ -83,6 +83,12 @@ export class MockDataService implements IDataService {
         });
     }
 
+    async getStockRule(targetItemId: string): Promise<StockRule | undefined> {
+        await this.delay(500);
+        const rules = await this.getStockRules();
+        return rules.find(r => r.targetItemId === targetItemId);
+    }
+
     async saveStockRule(rule: StockRule): Promise<void> {
         await this.delay(500);
         const index = MOCK_RULES.findIndex(r => r.targetItemId === rule.targetItemId);

@@ -38,7 +38,7 @@ function App() {
             >
               <Route index element={<DashboardPage />} />
               <Route path="rules/new" element={<RuleEditorPage />} />
-              <Route path="rules/:motherId/edit/:childId" element={<RuleEditorPage />} />
+              <Route path="rules/edit/:targetItemId" element={<RuleEditorPage />} />
             </Route>
           </Routes>
         </Suspense>

@@ -68,7 +68,7 @@ const StockRuleRow: React.FC<{
                 <TableCell component="th" scope="row" width={80}>
                     <Avatar
                         variant="rounded"
-                        src={row.targetItem?.thumbnail}
+                        src={row.targetItem?.thumbnail || undefined}
                         alt={row.targetItem?.title}
                         sx={{ width: 50, height: 50 }}
                     >
@@ -92,15 +92,7 @@ const StockRuleRow: React.FC<{
                         sx={{ fontWeight: 'bold' }}
                     />
                 </TableCell>
-                <TableCell align="center" width={120}>
-                    <Chip
-                        label="Activo"
-                        size="small"
-                        color="success"
-                        variant="filled"
-                        sx={{ height: 24, fontSize: '0.75rem' }}
-                    />
-                </TableCell>
+
                 <TableCell align="right" width={120}>
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                         <Tooltip title="Editar Regla">
@@ -199,7 +191,7 @@ export const StockRulesTable: React.FC<StockRulesTableProps> = ({
                             <TableCell width={80}>Imagen</TableCell>
                             <TableCell>Publicación Objetivo (Combo/Pack)</TableCell>
                             <TableCell align="center" width={120}>Tipo</TableCell>
-                            <TableCell align="center" width={120}>Estado</TableCell>
+
                             <TableCell align="right" width={120}>Acciones</TableCell>
                         </TableRow>
                     </TableHead>

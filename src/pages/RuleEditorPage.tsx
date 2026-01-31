@@ -36,7 +36,7 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ItemSearch } from '../components/Shared/ItemSearch';
 import { dataService } from '../services/apiFactory';
 import type { MeliItem, StockRule, RuleType, RuleComponent, VariantMapping } from '../models/types';
@@ -63,6 +63,63 @@ export const RuleEditorPage: React.FC = () => {
     const [mappings, setMappings] = useState<VariantMapping[]>([]);
     // Hydrated details for Target (fetched on entering Step 3)
     const [targetItemDetails, setTargetItemDetails] = useState<MeliItem | null>(null);
+
+    const { targetItemId } = useParams<{ targetItemId: string }>();
+
+    React.useEffect(() => {
+        if (!targetItemId) return;
+
+        const loadRule = async () => {
+            setLoading(true);
+            try {
+                // 1. Get Rule Data
+                const rule = await dataService.getStockRule(targetItemId);
+                if (!rule) {
+                    setError('Regla no encontrada.');
+                    return;
+                }
+
+                // 2. Hydrate Target Item
+                const targetDetails = await dataService.getItemDetails(rule.targetItemId);
+
+                // 3. Hydrate Source Items (Parallel)
+                const sourceDetailsPromises = rule.components.map(async (c) => {
+                    try {
+                        return await dataService.getItemDetails(c.sourceItemId);
+                    } catch (e) {
+                        console.error(`Error fetching source item ${c.sourceItemId}`, e);
+                        return null;
+                    }
+                });
+                const sourceItems = (await Promise.all(sourceDetailsPromises)).filter((i): i is MeliItem => i !== null);
+
+                // 4. Update State
+                setRuleType(rule.ruleType);
+                setTargetItem(targetDetails);
+                setComponents(rule.components);
+                setSourceItemsDetails(sourceItems);
+                setMappings(rule.mappings || []);
+
+                // Optional: Load target details if we want to be ready for Step 3 immediately, 
+                // but usually that happens on transition. 
+                // However, if we are editing, we might want to have it ready.
+                // Let's fetch it to be safe if the user jumps to step 3 (though we start at 0).
+                // Actually, targetDetails IS the full item, so we might already have what we need 
+                // if getItemDetails returns the full object including variations.
+                setTargetItemDetails(targetDetails);
+
+                // 5. Jump to Step 3 (Index 2) - Mapping
+                setActiveStep(2);
+
+            } catch (err) {
+                console.error(err);
+                setError('Error al cargar la regla para edición.');
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadRule();
+    }, [targetItemId]);
 
     // --- Handlers: Step 1 ---
     const handleTargetSelect = (item: MeliItem | null) => {

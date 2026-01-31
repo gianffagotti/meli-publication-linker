@@ -18,6 +18,11 @@ export class ApiDataService implements IDataService {
         return Array.isArray(response.data) ? response.data : [];
     }
 
+    async getStockRule(targetItemId: string): Promise<StockRule | undefined> {
+        const rules = await this.getStockRules();
+        return rules.find(r => r.targetItemId === targetItemId);
+    }
+
     async saveStockRule(rule: StockRule): Promise<void> {
         await axios.post(`/api/rules`, rule);
     }
