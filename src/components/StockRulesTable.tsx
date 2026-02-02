@@ -68,8 +68,8 @@ const StockRuleRow: React.FC<{
                 <TableCell component="th" scope="row" width={80}>
                     <Avatar
                         variant="rounded"
-                        src={row.targetItem?.thumbnail || undefined}
-                        alt={row.targetItem?.title}
+                        src={row.targetThumbnail || undefined}
+                        alt={row.targetTitle}
                         sx={{ width: 50, height: 50 }}
                     >
                         <BrokenImageIcon />
@@ -77,7 +77,7 @@ const StockRuleRow: React.FC<{
                 </TableCell>
                 <TableCell>
                     <Typography variant="subtitle2" component="div" sx={{ fontWeight: 'bold' }}>
-                        {row.targetItem?.title || row.targetItemId}
+                        {row.targetTitle || row.targetItemId}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                         ID: {row.targetItemId}

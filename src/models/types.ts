@@ -19,15 +19,25 @@ export interface RuleComponent {
   quantity: number;
 }
 
+
+export interface RuleSourceMatch {
+  sourceItemId: string;
+  sourceVariantId: string;
+  sourceSku: string;
+}
+
 export interface VariantMapping {
   targetVariantId: string;
-  // Key: SourceItemId, Value: SourceVariantId
-  sourceMatches: { [sourceItemId: string]: string };
+  targetSku: string;
+  sourceMatches: RuleSourceMatch[];
 }
 
 export interface StockRule {
   sellerId?: string;
   targetItemId: string; // The Combo/Pack Item ID
+  targetTitle: string;
+  targetThumbnail: string;
+  targetSku: string;
   ruleType: RuleType;
   components: RuleComponent[];
   mappings: VariantMapping[];

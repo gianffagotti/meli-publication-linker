@@ -60,6 +60,9 @@ export const RuleEditorPage: React.FC = () => {
 
     // --- State: Step 3 (Mapping) ---
     // Key: targetVariantId, Value: { sourceItemId: sourceVariantId }
+    // NOTE: We now use the full object structure for state to match types, 
+    // but for easier UI manipulation we might want a helper. 
+    // Let's store the full array as per the type.
     const [mappings, setMappings] = useState<VariantMapping[]>([]);
     // Hydrated details for Target (fetched on entering Step 3)
     const [targetItemDetails, setTargetItemDetails] = useState<MeliItem | null>(null);
@@ -226,22 +229,61 @@ export const RuleEditorPage: React.FC = () => {
 
     const handleMappingChange = (targetVarId: string, sourceItemId: string, sourceVarId: string) => {
         const newMappings = [...mappings];
-        let mappingIndex = newMappings.findIndex(m => m.targetVariantId === targetVarId);
+        const mappingIndex = newMappings.findIndex(m => m.targetVariantId === targetVarId);
 
         if (mappingIndex === -1) {
-            // Create new mapping entry
+            // Should not happen if initialized correctly, but for safety:
+            // We need target SKU to create a new mapping properly.
+            const targetVar = targetItemDetails?.variations.find(v => v.id.toString() === targetVarId);
+            if (!targetVar) return;
+
+            // Find source SKU
+            const sourceItem = sourceItemsDetails.find(i => i.id === sourceItemId);
+            const sourceVar = sourceItem?.variations.find(v => v.id.toString() === sourceVarId);
+
             newMappings.push({
                 targetVariantId: targetVarId,
-                sourceMatches: { [sourceItemId]: sourceVarId }
+                targetSku: targetVar.sku || '',
+                sourceMatches: [{
+                    sourceItemId,
+                    sourceVariantId: sourceVarId,
+                    sourceSku: sourceVar?.sku || ''
+                }]
             });
         } else {
-            // Update existing
-            newMappings[mappingIndex] = {
-                ...newMappings[mappingIndex],
-                sourceMatches: {
-                    ...newMappings[mappingIndex].sourceMatches,
-                    [sourceItemId]: sourceVarId
+            // Update existing mapping
+            const existingMapping = newMappings[mappingIndex];
+            const sourceMatches = [...existingMapping.sourceMatches];
+            const matchIndex = sourceMatches.findIndex(m => m.sourceItemId === sourceItemId);
+
+            // Find source data for the new value
+            const sourceItem = sourceItemsDetails.find(i => i.id === sourceItemId);
+            const sourceVar = sourceItem?.variations.find(v => v.id.toString() === sourceVarId);
+
+            if (matchIndex >= 0) {
+                if (sourceVarId === "") {
+                    // Remove if empty
+                    sourceMatches.splice(matchIndex, 1);
+                } else {
+                    // Update
+                    sourceMatches[matchIndex] = {
+                        ...sourceMatches[matchIndex],
+                        sourceVariantId: sourceVarId,
+                        sourceSku: sourceVar?.sku || ''
+                    };
                 }
+            } else if (sourceVarId !== "") {
+                // Add new match
+                sourceMatches.push({
+                    sourceItemId,
+                    sourceVariantId: sourceVarId,
+                    sourceSku: sourceVar?.sku || ''
+                });
+            }
+
+            newMappings[mappingIndex] = {
+                ...existingMapping,
+                sourceMatches
             };
         }
         setMappings(newMappings);
@@ -249,7 +291,8 @@ export const RuleEditorPage: React.FC = () => {
 
     const getMappedValue = (targetVarId: string, sourceItemId: string): string => {
         const mapping = mappings.find(m => m.targetVariantId === targetVarId);
-        return mapping?.sourceMatches?.[sourceItemId] || '';
+        const match = mapping?.sourceMatches.find(m => m.sourceItemId === sourceItemId);
+        return match?.sourceVariantId || '';
     };
 
     // --- Navigation Handlers ---
@@ -277,7 +320,8 @@ export const RuleEditorPage: React.FC = () => {
                     const newMappings: VariantMapping[] = [];
 
                     details.variations.forEach(targetVar => {
-                        const sourceMatches: { [sourceItemId: string]: string } = {};
+                        // const sourceMatches: { [sourceItemId: string]: string } = {};
+                        const sourceMatches: import('../models/types').RuleSourceMatch[] = [];
 
                         // For each component, try to find a match by SKU
                         components.forEach(comp => {
@@ -289,23 +333,21 @@ export const RuleEditorPage: React.FC = () => {
                                 );
 
                                 if (match) {
-                                    sourceMatches[comp.sourceItemId] = match.id.toString();
-                                } else {
-                                    // Default: 'Sin Asignar' (which is just missing key or empty string)
+                                    // sourceMatches[comp.sourceItemId] = match.id.toString();
+                                    sourceMatches.push({
+                                        sourceItemId: comp.sourceItemId,
+                                        sourceVariantId: match.id.toString(),
+                                        sourceSku: match.sku || ''
+                                    });
                                 }
                             }
                         });
 
-                        // Only add if we found some matches? Or always add to initialize structure?
-                        // Let's initialize structure so we have the rows ready, even if empty.
-                        // Actually the UI derives rows from targetItemDetails if mapping is missing, 
-                        // but pre-filling 'mappings' state is good for persistence.
-                        if (Object.keys(sourceMatches).length > 0) {
-                            newMappings.push({
-                                targetVariantId: targetVar.id.toString(),
-                                sourceMatches
-                            });
-                        }
+                        newMappings.push({
+                            targetVariantId: targetVar.id.toString(),
+                            targetSku: targetVar.sku || '',
+                            sourceMatches
+                        });
                     });
 
                     if (newMappings.length > 0) {
@@ -337,6 +379,9 @@ export const RuleEditorPage: React.FC = () => {
         try {
             const rule: StockRule = {
                 targetItemId: targetItem.id,
+                targetTitle: targetItem.title || '',
+                targetThumbnail: targetItem.thumbnail || '',
+                targetSku: targetItem.variations?.[0]?.sku || '', // Default to first var SKU or empty if simple item? Assuming Item has variations.
                 ruleType,
                 components,
                 mappings

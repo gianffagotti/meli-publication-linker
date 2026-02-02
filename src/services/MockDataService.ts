@@ -10,6 +10,9 @@ const MOCK_RULES: StockRule[] = [
     {
         sellerId: "123",
         targetItemId: "MLA-BOXER-FULL",
+        targetTitle: "Boxer Full Example",
+        targetThumbnail: "http://http2.mlstatic.com/D_812345-MLA123456789_122020-O.jpg",
+        targetSku: "BOXER-FULL-001",
         ruleType: "FULL",
         components: [
             { sourceItemId: "MLA-BOXER-FLEX", quantity: 1 }
@@ -17,21 +20,39 @@ const MOCK_RULES: StockRule[] = [
         mappings: [
             {
                 targetVariantId: "201",
-                sourceMatches: { "MLA-BOXER-FLEX": "101" }
+                targetSku: "VAR-FULL-201",
+                sourceMatches: [{
+                    sourceItemId: "MLA-BOXER-FLEX",
+                    sourceVariantId: "101",
+                    sourceSku: "VAR-FLEX-101"
+                }]
             },
             {
                 targetVariantId: "202",
-                sourceMatches: { "MLA-BOXER-FLEX": "102" }
+                targetSku: "VAR-FULL-202",
+                sourceMatches: [{
+                    sourceItemId: "MLA-BOXER-FLEX",
+                    sourceVariantId: "102",
+                    sourceSku: "VAR-FLEX-102"
+                }]
             },
             {
                 targetVariantId: "203",
-                sourceMatches: { "MLA-BOXER-FLEX": "103" }
+                targetSku: "VAR-FULL-203",
+                sourceMatches: [{
+                    sourceItemId: "MLA-BOXER-FLEX",
+                    sourceVariantId: "103",
+                    sourceSku: "VAR-FLEX-103"
+                }]
             }
         ]
     },
     {
         sellerId: "123",
         targetItemId: "MLA-BOXER-PACK3",
+        targetTitle: "Boxer Pack x3 Example",
+        targetThumbnail: "http://http2.mlstatic.com/D_812345-MLA123456789_122020-O.jpg",
+        targetSku: "BOXER-PACK-003",
         ruleType: "PACK",
         components: [
             { sourceItemId: "MLA-BOXER-FLEX", quantity: 3 }
@@ -39,11 +60,21 @@ const MOCK_RULES: StockRule[] = [
         mappings: [
             {
                 targetVariantId: "301",
-                sourceMatches: { "MLA-BOXER-FLEX": "101" }
+                targetSku: "VAR-PACK-301",
+                sourceMatches: [{
+                    sourceItemId: "MLA-BOXER-FLEX",
+                    sourceVariantId: "101",
+                    sourceSku: "VAR-FLEX-101"
+                }]
             },
             {
                 targetVariantId: "302",
-                sourceMatches: { "MLA-BOXER-FLEX": "102" }
+                targetSku: "VAR-PACK-302",
+                sourceMatches: [{
+                    sourceItemId: "MLA-BOXER-FLEX",
+                    sourceVariantId: "102",
+                    sourceSku: "VAR-FLEX-102"
+                }]
             }
         ]
     }
