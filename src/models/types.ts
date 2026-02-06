@@ -1,5 +1,4 @@
 export interface MeliVariation {
-  id: number;
   user_product_id: string;
   sku?: string;
   description?: string;

@@ -188,7 +188,7 @@ export const RuleEditorPage: React.FC = () => {
         // 1. Individual Variants
         sourceItem.variations.forEach(v => {
             options.push({
-                value: v.id.toString(),
+                value: v.user_product_id.toString(),
                 label: `${v.sku || 'Sin SKU'} - ${v.description || 'Sin Desc'}`,
                 isGroup: false
             });
@@ -204,12 +204,12 @@ export const RuleEditorPage: React.FC = () => {
         const sizeGroups: { [size: string]: string[] } = {};
 
         sourceItem.variations.forEach(v => {
-            if (!v.description) return;
-            const parts = v.description.split(' ');
+            if (!v.sku) return;
+            const parts = v.sku.split('#');
             if (parts.length > 1) {
                 const size = parts[parts.length - 1]; // Assume last part is size
                 if (!sizeGroups[size]) sizeGroups[size] = [];
-                sizeGroups[size].push(v.id.toString());
+                sizeGroups[size].push(v.user_product_id.toString());
             }
         });
 
@@ -217,7 +217,7 @@ export const RuleEditorPage: React.FC = () => {
             // Only add group if it covers more than 1 variant
             if (sizeGroups[size].length > 1) {
                 options.push({
-                    value: `GROUP:SIZE:${size}`,
+                    value: `GROUP#SIZE#${size}`,
                     label: `Cualquier Color - Talle ${size}`,
                     isGroup: true
                 });
@@ -234,12 +234,12 @@ export const RuleEditorPage: React.FC = () => {
         if (mappingIndex === -1) {
             // Should not happen if initialized correctly, but for safety:
             // We need target SKU to create a new mapping properly.
-            const targetVar = targetItemDetails?.variations.find(v => v.id.toString() === targetVarId);
+            const targetVar = targetItemDetails?.variations.find(v => v.user_product_id.toString() === targetVarId);
             if (!targetVar) return;
 
             // Find source SKU
             const sourceItem = sourceItemsDetails.find(i => i.id === sourceItemId);
-            const sourceVar = sourceItem?.variations.find(v => v.id.toString() === sourceVarId);
+            const sourceVar = sourceItem?.variations.find(v => v.user_product_id.toString() === sourceVarId);
 
             newMappings.push({
                 targetVariantId: targetVarId,
@@ -258,7 +258,7 @@ export const RuleEditorPage: React.FC = () => {
 
             // Find source data for the new value
             const sourceItem = sourceItemsDetails.find(i => i.id === sourceItemId);
-            const sourceVar = sourceItem?.variations.find(v => v.id.toString() === sourceVarId);
+            const sourceVar = sourceItem?.variations.find(v => v.user_product_id.toString() === sourceVarId);
 
             if (matchIndex >= 0) {
                 if (sourceVarId === "") {
@@ -336,7 +336,7 @@ export const RuleEditorPage: React.FC = () => {
                                     // sourceMatches[comp.sourceItemId] = match.id.toString();
                                     sourceMatches.push({
                                         sourceItemId: comp.sourceItemId,
-                                        sourceVariantId: match.id.toString(),
+                                        sourceVariantId: match.user_product_id.toString(),
                                         sourceSku: match.sku || ''
                                     });
                                 }
@@ -344,7 +344,7 @@ export const RuleEditorPage: React.FC = () => {
                         });
 
                         newMappings.push({
-                            targetVariantId: targetVar.id.toString(),
+                            targetVariantId: targetVar.user_product_id.toString(),
                             targetSku: targetVar.sku || '',
                             sourceMatches
                         });
@@ -536,7 +536,7 @@ export const RuleEditorPage: React.FC = () => {
                     </TableHead>
                     <TableBody>
                         {targetItemDetails?.variations.map(targetVar => (
-                            <TableRow key={targetVar.id}>
+                            <TableRow key={targetVar.user_product_id}>
                                 <TableCell>
                                     <Typography variant="body2" fontWeight="medium">
                                         {targetVar.description}
@@ -555,8 +555,8 @@ export const RuleEditorPage: React.FC = () => {
                                         <TableCell key={comp.sourceItemId}>
                                             <FormControl fullWidth size="small">
                                                 <Select
-                                                    value={getMappedValue(targetVar.id.toString(), comp.sourceItemId)}
-                                                    onChange={(e) => handleMappingChange(targetVar.id.toString(), comp.sourceItemId, e.target.value)}
+                                                    value={getMappedValue(targetVar.user_product_id.toString(), comp.sourceItemId)}
+                                                    onChange={(e) => handleMappingChange(targetVar.user_product_id.toString(), comp.sourceItemId, e.target.value)}
                                                     displayEmpty
                                                 >
                                                     <MenuItem value=""><em>Sin Asignar</em></MenuItem>
