@@ -8,7 +8,6 @@ const MOCK_ITEMS: MeliItem[] = mockItems as unknown as MeliItem[];
 // Hardcoded new rules
 const MOCK_RULES: StockRule[] = [
     {
-        sellerId: "123",
         targetItemId: "MLA-BOXER-FULL",
         targetTitle: "Boxer Full Example",
         targetThumbnail: "http://http2.mlstatic.com/D_812345-MLA123456789_122020-O.jpg",
@@ -24,7 +23,8 @@ const MOCK_RULES: StockRule[] = [
                 sourceMatches: [{
                     sourceItemId: "MLA-BOXER-FLEX",
                     sourceVariantId: "101",
-                    sourceSku: "VAR-FLEX-101"
+                    sourceSku: "VAR-FLEX-101",
+                    quantity: 1
                 }]
             },
             {
@@ -33,7 +33,8 @@ const MOCK_RULES: StockRule[] = [
                 sourceMatches: [{
                     sourceItemId: "MLA-BOXER-FLEX",
                     sourceVariantId: "102",
-                    sourceSku: "VAR-FLEX-102"
+                    sourceSku: "VAR-FLEX-102",
+                    quantity: 1
                 }]
             },
             {
@@ -42,13 +43,13 @@ const MOCK_RULES: StockRule[] = [
                 sourceMatches: [{
                     sourceItemId: "MLA-BOXER-FLEX",
                     sourceVariantId: "103",
-                    sourceSku: "VAR-FLEX-103"
+                    sourceSku: "VAR-FLEX-103",
+                    quantity: 1
                 }]
             }
         ]
     },
     {
-        sellerId: "123",
         targetItemId: "MLA-BOXER-PACK3",
         targetTitle: "Boxer Pack x3 Example",
         targetThumbnail: "http://http2.mlstatic.com/D_812345-MLA123456789_122020-O.jpg",
@@ -64,7 +65,8 @@ const MOCK_RULES: StockRule[] = [
                 sourceMatches: [{
                     sourceItemId: "MLA-BOXER-FLEX",
                     sourceVariantId: "101",
-                    sourceSku: "VAR-FLEX-101"
+                    sourceSku: "VAR-FLEX-101",
+                    quantity: 3
                 }]
             },
             {
@@ -73,7 +75,8 @@ const MOCK_RULES: StockRule[] = [
                 sourceMatches: [{
                     sourceItemId: "MLA-BOXER-FLEX",
                     sourceVariantId: "102",
-                    sourceSku: "VAR-FLEX-102"
+                    sourceSku: "VAR-FLEX-102",
+                    quantity: 3
                 }]
             }
         ]

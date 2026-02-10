@@ -13,14 +13,23 @@ export class ApiDataService implements IDataService {
         return response.data;
     }
 
+    /** GET rules — matches [Route("rules")] */
     async getStockRules(): Promise<StockRule[]> {
-        const response = await axios.get(`/api/rules`);
+        const response = await axios.get<StockRule[]>(`/api/rules`);
         return Array.isArray(response.data) ? response.data : [];
     }
 
+    /** GET rules/{targetItemId} — matches [Route("rules/{targetItemId}")] */
     async getStockRule(targetItemId: string): Promise<StockRule | undefined> {
-        const rules = await this.getStockRules();
-        return rules.find(r => r.targetItemId === targetItemId);
+        try {
+            const response = await axios.get<StockRule>(`/api/rules/${encodeURIComponent(targetItemId)}`);
+            return response.data;
+        } catch (err: unknown) {
+            if (axios.isAxiosError(err) && err.response?.status === 404) {
+                return undefined;
+            }
+            throw err;
+        }
     }
 
     async saveStockRule(rule: StockRule): Promise<void> {
