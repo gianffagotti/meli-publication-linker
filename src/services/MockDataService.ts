@@ -21,6 +21,7 @@ const MOCK_RULES: StockRule[] = [
             {
                 targetVariantId: "201",
                 targetSku: "VAR-FULL-201",
+                strategy: "EXPLICIT",
                 sourceMatches: [{
                     sourceItemId: "MLA-BOXER-FLEX",
                     sourceVariantId: "101",
@@ -31,6 +32,7 @@ const MOCK_RULES: StockRule[] = [
             {
                 targetVariantId: "202",
                 targetSku: "VAR-FULL-202",
+                strategy: "EXPLICIT",
                 sourceMatches: [{
                     sourceItemId: "MLA-BOXER-FLEX",
                     sourceVariantId: "102",
@@ -41,6 +43,7 @@ const MOCK_RULES: StockRule[] = [
             {
                 targetVariantId: "203",
                 targetSku: "VAR-FULL-203",
+                strategy: "EXPLICIT",
                 sourceMatches: [{
                     sourceItemId: "MLA-BOXER-FLEX",
                     sourceVariantId: "103",
@@ -64,6 +67,7 @@ const MOCK_RULES: StockRule[] = [
             {
                 targetVariantId: "301",
                 targetSku: "VAR-PACK-301",
+                strategy: "EXPLICIT",
                 sourceMatches: [{
                     sourceItemId: "MLA-BOXER-FLEX",
                     sourceVariantId: "101",
@@ -74,6 +78,7 @@ const MOCK_RULES: StockRule[] = [
             {
                 targetVariantId: "302",
                 targetSku: "VAR-PACK-302",
+                strategy: "EXPLICIT",
                 sourceMatches: [{
                     sourceItemId: "MLA-BOXER-FLEX",
                     sourceVariantId: "102",

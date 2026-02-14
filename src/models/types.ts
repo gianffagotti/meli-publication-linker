@@ -15,6 +15,8 @@ export interface MeliItem {
   thumbnail?: string;
   /** For FULL warning: fulfillment = ML controls stock. */
   shipping?: MeliShipping;
+  /** Convenience: fulfillment | self_service. Use shipping.logistic_type when available. */
+  logisticsType?: string;
 }
 
 export type RuleType = 'FULL' | 'PACK' | 'COMBO';
@@ -41,17 +43,32 @@ export interface RuleSourceMatchPayload {
   quantity: number;
 }
 
+/** Strategy per variant mapping. Explicit = use sourceMatches; DynamicSize = pool by matchSize. */
+export type MappingStrategy = 'EXPLICIT' | 'DYNAMIC_SIZE';
+
 /**
- * Variant mapping: one target variant → list of source matches (Simple = 1, Assorted/Pool = many).
- * API: targetVariantId, targetSku, packQuantity?, sourceMatches[].
+ * Variant mapping: one target variant → strategy + source config.
+ * API: targetVariantId, targetSku, packQuantity?, strategy, matchSize?, sourceMatches[].
  */
 export interface VariantMapping {
   targetVariantId: string;
   targetSku: string;
   /** Optional per-variant pack size override. Sent as packQuantity. */
   customPackQuantity?: number;
-  /** List of source SKUs (one or more). One = Simple, multiple = Surtido/Pool. */
+  /** Strategy: EXPLICIT (use sourceMatches) or DYNAMIC_SIZE (pool by matchSize). */
+  strategy: MappingStrategy;
+  /** Used when strategy === 'EXPLICIT'. One = Simple Pack, multiple = manual assorted. */
   sourceMatches: RuleSourceMatch[];
+  /** Used when strategy === 'DYNAMIC_SIZE'. e.g. "M", "L", "42". */
+  matchSize?: string;
+}
+
+/** Form state for Rule Editor (includes defaultPackQuantity and mappings). */
+export interface RuleFormData {
+  targetMla: string;
+  ruleType: RuleType;
+  defaultPackQuantity?: number;
+  mappings: VariantMapping[];
 }
 
 /** Maps to StockRuleDto. No packMode / packSurtidoGroupBy (Spec V2). */

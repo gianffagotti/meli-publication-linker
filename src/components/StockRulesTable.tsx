@@ -108,6 +108,9 @@ const StockRuleRow: React.FC<{
                         <Typography variant="caption" color="text.secondary">
                             {getRuleSummary(row)}
                         </Typography>
+                        {row.ruleType === 'PACK' && (row.mappings?.some(m => (m.sourceMatches?.length ?? 0) > 1) ?? false) && (
+                            <Chip label="Híbrido" size="small" color="secondary" variant="filled" sx={{ mt: 0.25 }} />
+                        )}
                     </Box>
                 </TableCell>
 

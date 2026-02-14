@@ -13,8 +13,6 @@ import {
     TableHead,
     TableRow,
     Paper,
-    Select,
-    MenuItem,
     TextField,
     Button,
     Alert,
@@ -31,16 +29,16 @@ import {
     ListItemText,
     ListItemSecondaryAction,
     Divider,
-    Chip,
-    Avatar,
-    Stack
+    Avatar
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ItemSearch } from '../components/Shared/ItemSearch';
+import { RuleVariantRow, type SourceOption } from '../components/Rules/RuleVariantRow';
 import { dataService } from '../services/apiFactory';
-import type { MeliItem, StockRule, RuleType, RuleComponent, VariantMapping, RuleSourceMatchPayload } from '../models/types';
+import type { MeliItem, StockRule, RuleType, RuleComponent, VariantMapping, RuleSourceMatchPayload, MappingStrategy } from '../models/types';
+import { useSourceSizes } from '../hooks/useSourceSizes';
 
 const STEPS = ['Seleccionar Objetivo', 'Definir Componentes', 'Mapear Variantes'];
 const STEPS_FULL = ['Seleccionar Objetivo', 'Definir Componentes'];
@@ -72,6 +70,9 @@ export const RuleEditorPage: React.FC = () => {
     const [mappings, setMappings] = useState<VariantMapping[]>([]);
     // Hydrated details for Target (fetched on entering Step 3)
     const [targetItemDetails, setTargetItemDetails] = useState<MeliItem | null>(null);
+
+    /** Unique sizes parsed from source item SKUs (split by '#', last segment). For Dynamic strategy dropdown. */
+    const availableSizes = useSourceSizes(sourceItemsDetails);
 
     const { targetItemId } = useParams<{ targetItemId: string }>();
 
@@ -111,6 +112,8 @@ export const RuleEditorPage: React.FC = () => {
                     targetVariantId: m.targetVariantId,
                     targetSku: m.targetSku,
                     customPackQuantity: (m as VariantMapping & { packQuantity?: number }).packQuantity ?? m.customPackQuantity,
+                    strategy: (m as VariantMapping & { strategy?: VariantMapping['strategy'] }).strategy ?? 'EXPLICIT',
+                    matchSize: (m as VariantMapping & { matchSize?: string }).matchSize,
                     sourceMatches: m.sourceMatches || []
                 })));
                 setDefaultPackQuantity(rule.defaultPackQuantity ?? 1);
@@ -207,9 +210,9 @@ export const RuleEditorPage: React.FC = () => {
     };
 
     // --- Handlers: Step 3 ---
-    /** Flat list of all source variations for "Add source" dropdown (all components). */
-    const getAllSourceOptions = (): { sourceItemId: string; sourceVariantId: string; sourceSku: string; label: string }[] => {
-        const options: { sourceItemId: string; sourceVariantId: string; sourceSku: string; label: string }[] = [];
+    /** Flat list of all source variations for multi-select (all components). */
+    const getAllSourceOptions = (): SourceOption[] => {
+        const options: SourceOption[] = [];
         sourceItemsDetails.forEach(sourceItem => {
             (sourceItem.variations || []).forEach(v => {
                 options.push({
@@ -223,7 +226,8 @@ export const RuleEditorPage: React.FC = () => {
         return options;
     };
 
-    const handleAddSourceToVariant = (targetVarId: string, option: { sourceItemId: string; sourceVariantId: string; sourceSku: string }, quantity: number = 1) => {
+    const handleAddSourcesToVariant = (targetVarId: string, options: SourceOption[], quantity: number = 1) => {
+        if (options.length === 0) return;
         const newMappings = [...mappings];
         let mappingIndex = newMappings.findIndex(m => m.targetVariantId === targetVarId);
         if (mappingIndex === -1) {
@@ -232,15 +236,21 @@ export const RuleEditorPage: React.FC = () => {
             newMappings.push({
                 targetVariantId: targetVarId,
                 targetSku: targetVar.sku || '',
+                strategy: 'EXPLICIT',
                 sourceMatches: []
             });
             mappingIndex = newMappings.length - 1;
         }
         const existing = newMappings[mappingIndex];
-        if (existing.sourceMatches.some(m => m.sourceItemId === option.sourceItemId && m.sourceVariantId === option.sourceVariantId)) return;
+        const toAdd = options.filter(
+            opt => !existing.sourceMatches.some(
+                m => m.sourceItemId === opt.sourceItemId && m.sourceVariantId === opt.sourceVariantId
+            )
+        ).map(opt => ({ sourceItemId: opt.sourceItemId, sourceVariantId: opt.sourceVariantId, sourceSku: opt.sourceSku, quantity }));
+        if (toAdd.length === 0) return;
         newMappings[mappingIndex] = {
             ...existing,
-            sourceMatches: [...existing.sourceMatches, { ...option, quantity }]
+            sourceMatches: [...existing.sourceMatches, ...toAdd]
         };
         setMappings(newMappings);
     };
@@ -266,19 +276,58 @@ export const RuleEditorPage: React.FC = () => {
                 targetVariantId: id,
                 targetSku: targetVar.sku || '',
                 customPackQuantity: sourceMapping.customPackQuantity,
+                strategy: sourceMapping.strategy,
+                matchSize: sourceMapping.matchSize,
                 sourceMatches: [...sourceMapping.sourceMatches]
             };
         });
         setMappings(newMappings);
     };
 
-    const handleMappingQuantityChange = (targetVarId: string, sourceItemId: string, quantity: number) => {
+    const handleStrategyChange = (targetVarId: string, newStrategy: MappingStrategy) => {
+        setMappings(prev => {
+            const idx = prev.findIndex(m => m.targetVariantId === targetVarId);
+            const targetSku = targetItemDetails?.variations?.find(v => v.user_product_id.toString() === targetVarId)?.sku ?? '';
+            if (idx === -1) {
+                const newMapping: VariantMapping = {
+                    targetVariantId: targetVarId,
+                    targetSku,
+                    strategy: newStrategy,
+                    sourceMatches: newStrategy === 'EXPLICIT' ? [] : [],
+                    matchSize: newStrategy === 'DYNAMIC_SIZE' ? (availableSizes[0] ?? '') : undefined,
+                };
+                return [...prev, newMapping];
+            }
+            return prev.map(m => {
+                if (m.targetVariantId !== targetVarId) return m;
+                if (newStrategy === 'DYNAMIC_SIZE') {
+                    return {
+                        ...m,
+                        strategy: 'DYNAMIC_SIZE',
+                        sourceMatches: [],
+                        matchSize: availableSizes.length > 0 ? availableSizes[0] : '',
+                    };
+                }
+                return { ...m, strategy: 'EXPLICIT', matchSize: undefined };
+            });
+        });
+    };
+
+    const handleMatchSizeChange = (targetVarId: string, matchSize: string) => {
+        setMappings(prev => prev.map(m =>
+            m.targetVariantId === targetVarId ? { ...m, matchSize } : m
+        ));
+    };
+
+    const handleMappingQuantityChange = (targetVarId: string, sourceItemId: string, sourceVariantId: string, quantity: number) => {
         const qty = Math.max(1, Math.floor(quantity));
         const newMappings = [...mappings];
         const mappingIndex = newMappings.findIndex(m => m.targetVariantId === targetVarId);
         if (mappingIndex === -1) return;
         const existingMapping = newMappings[mappingIndex];
-        const matchIndex = existingMapping.sourceMatches.findIndex(m => m.sourceItemId === sourceItemId);
+        const matchIndex = existingMapping.sourceMatches.findIndex(
+            m => m.sourceItemId === sourceItemId && m.sourceVariantId === sourceVariantId
+        );
         if (matchIndex === -1) return;
         const sourceMatches = [...existingMapping.sourceMatches];
         sourceMatches[matchIndex] = { ...sourceMatches[matchIndex], quantity: qty };
@@ -323,6 +372,7 @@ export const RuleEditorPage: React.FC = () => {
             newMappings.push({
                 targetVariantId: targetVar.user_product_id.toString(),
                 targetSku: targetVar.sku || '',
+                strategy: 'EXPLICIT',
                 sourceMatches
             });
         });
@@ -394,6 +444,36 @@ export const RuleEditorPage: React.FC = () => {
         }
     };
 
+    /** UI-03: Guardar disabled when any variant has no SKU or pack qty invalid. */
+    const canSave = React.useMemo(() => {
+        const stepsToShow = ruleType === 'FULL' ? STEPS_FULL : STEPS;
+        const lastStepIndex = stepsToShow.length - 1;
+        if (activeStep !== lastStepIndex) return true; // Not on save step
+
+        if (ruleType === 'FULL') {
+            return !!(targetItem && components.length >= 1);
+        }
+        if (ruleType === 'PACK' || ruleType === 'COMBO') {
+            if (!targetItem || defaultPackQuantity < 1 || !Number.isFinite(defaultPackQuantity)) return false;
+            const targetVariantIds = new Set(
+                (targetItemDetails?.variations ?? []).map(v => v.user_product_id.toString())
+            );
+            const everyVariantValid = [...targetVariantIds].every(id => {
+                const m = mappings.find(m => m.targetVariantId === id);
+                if (!m) return false;
+                if (m.strategy === 'EXPLICIT') return (m.sourceMatches?.length ?? 0) >= 1;
+                if (m.strategy === 'DYNAMIC_SIZE') {
+                    if (!m.matchSize?.trim()) return false;
+                    if (availableSizes.length === 0) return false; // No parseable sizes in source SKUs
+                    return true;
+                }
+                return false;
+            });
+            return everyVariantValid;
+        }
+        return true;
+    }, [activeStep, ruleType, targetItem, components.length, defaultPackQuantity, targetItemDetails?.variations, mappings, availableSizes]);
+
     const handleSave = async () => {
         if (!targetItem) return;
 
@@ -423,6 +503,7 @@ export const RuleEditorPage: React.FC = () => {
                         fullMappings.push({
                             targetVariantId: targetVar.user_product_id.toString(),
                             targetSku: targetVar.sku || '',
+                            strategy: 'EXPLICIT',
                             sourceMatches: [{
                                 sourceItemId: comp!.sourceItemId,
                                 sourceVariantId: sourceVar.user_product_id.toString(),
@@ -448,7 +529,7 @@ export const RuleEditorPage: React.FC = () => {
                 }
             }
 
-            // Validación: todas las variantes destino deben tener al menos un mapeo
+            // Validación: todas las variantes destino deben tener mapeo válido (Explicit con sourceMatches o Dynamic con matchSize)
             if (ruleType === 'PACK' || ruleType === 'COMBO') {
                 let detailsForValidation = targetItemDetails;
                 if (!detailsForValidation) {
@@ -458,19 +539,27 @@ export const RuleEditorPage: React.FC = () => {
                 const targetVariantIds = new Set(
                     (detailsForValidation?.variations ?? []).map(v => v.user_product_id.toString())
                 );
-                const mappedTargetIds = new Set(mappingsToSave.filter(m => m.sourceMatches.length > 0).map(m => m.targetVariantId));
-                const orphanIds = [...targetVariantIds].filter(id => !mappedTargetIds.has(id));
+                const validMappingIds = new Set(
+                    mappingsToSave.filter(m => {
+                        if (m.strategy === 'EXPLICIT') return m.sourceMatches.length > 0;
+                        if (m.strategy === 'DYNAMIC_SIZE') return !!m.matchSize?.trim();
+                        return false;
+                    }).map(m => m.targetVariantId)
+                );
+                const orphanIds = [...targetVariantIds].filter(id => !validMappingIds.has(id));
                 if (orphanIds.length > 0) {
-                    setError('Faltan variantes por asignar. Por favor complete el mapeo para todas las variantes.');
+                    setError('Faltan variantes por asignar. Por favor complete el mapeo para todas las variantes (Manual con al menos un SKU o Dinámico con talle).');
                     return;
                 }
             }
 
-            // Build payload: backend expects packQuantity (not customPackQuantity), sourceMatches
+            // Build payload: backend expects packQuantity, strategy, matchSize, sourceMatches
             const payloadMappings = mappingsToSave.map(m => ({
                 targetVariantId: m.targetVariantId,
                 targetSku: m.targetSku,
                 packQuantity: m.customPackQuantity ?? undefined,
+                strategy: m.strategy,
+                matchSize: m.matchSize ?? undefined,
                 sourceMatches: m.sourceMatches.map((sm): RuleSourceMatchPayload => ({
                     sourceItemId: sm.sourceItemId,
                     sourceVariantId: sm.sourceVariantId.startsWith(GROUP_OPTION_PREFIX) ? null : sm.sourceVariantId,
@@ -534,9 +623,9 @@ export const RuleEditorPage: React.FC = () => {
 
                         {targetItem && (
                             <>
-                                {targetItem.shipping?.logistic_type === 'fulfillment' && (
+                                {(targetItem.shipping?.logistic_type === 'fulfillment' || targetItem.logisticsType === 'fulfillment') && (
                                     <Alert severity="warning" sx={{ mt: 2 }}>
-                                        Publicación FULL. Solo se actualizará el stock local.
+                                        ⚠️ Publicación FULL. Solo se actualizará el stock de tu depósito local (Seller Address).
                                     </Alert>
                                 )}
                                 <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
@@ -658,87 +747,24 @@ export const RuleEditorPage: React.FC = () => {
                             {targetItemDetails?.variations.map(targetVar => {
                                 const targetVarId = targetVar.user_product_id.toString();
                                 const mapping = mappings.find(m => m.targetVariantId === targetVarId);
-                                const sourceMatches = mapping?.sourceMatches ?? [];
-                                const isPool = sourceMatches.length > 1;
                                 return (
-                                    <TableRow key={targetVarId}>
-                                        <TableCell>
-                                            <Typography variant="body2" fontWeight="medium">{targetVar.description ?? targetVar.sku}</Typography>
-                                            <Typography variant="caption" color="text.secondary">{targetVar.sku || 'No SKU'}</Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Stack direction="row" flexWrap="wrap" gap={0.5} alignItems="center" sx={{ py: 0.5 }}>
-                                                {isPool && <Chip label="Surtido/Pool" size="small" color="secondary" sx={{ mr: 0.5 }} />}
-                                                {sourceMatches.map((sm, idx) => (
-                                                    <Chip
-                                                        key={`${sm.sourceItemId}-${sm.sourceVariantId}-${idx}`}
-                                                        label={ruleType === 'COMBO' ? `${sm.sourceSku} × ${sm.quantity}` : sm.sourceSku}
-                                                        size="small"
-                                                        onDelete={() => handleRemoveSourceFromVariant(targetVarId, idx)}
-                                                        sx={{ mb: 0.5 }}
-                                                    />
-                                                ))}
-                                                <FormControl size="small" sx={{ minWidth: 220 }}>
-                                                    <Select
-                                                        displayEmpty
-                                                        value=""
-                                                        onChange={(e) => {
-                                                            const val = e.target.value as string;
-                                                            if (!val) return;
-                                                            const opt = allSourceOptions.find(o => `${o.sourceItemId}:${o.sourceVariantId}` === val);
-                                                            if (opt) handleAddSourceToVariant(targetVarId, opt, ruleType === 'COMBO' ? 1 : defaultPackQuantity);
-                                                        }}
-                                                    >
-                                                        <MenuItem value=""><em>+ Agregar fuente</em></MenuItem>
-                                                        {allSourceOptions.map(opt => (
-                                                            <MenuItem key={`${opt.sourceItemId}-${opt.sourceVariantId}`} value={`${opt.sourceItemId}:${opt.sourceVariantId}`}>
-                                                                {opt.label}
-                                                            </MenuItem>
-                                                        ))}
-                                                    </Select>
-                                                </FormControl>
-                                            </Stack>
-                                            {ruleType === 'COMBO' && sourceMatches.length > 0 && (
-                                                <Box sx={{ mt: 0.5 }}>
-                                                    {sourceMatches.map((sm, idx) => (
-                                                        <TextField
-                                                            key={`qty-${targetVarId}-${idx}`}
-                                                            size="small"
-                                                            type="number"
-                                                            label={`Cant. ${sm.sourceSku}`}
-                                                            value={sm.quantity}
-                                                            onChange={(e) => handleMappingQuantityChange(targetVarId, sm.sourceItemId, parseInt(e.target.value, 10) || 1)}
-                                                            inputProps={{ min: 1 }}
-                                                            sx={{ width: 80, mr: 1, mt: 0.5 }}
-                                                        />
-                                                    ))}
-                                                </Box>
-                                            )}
-                                        </TableCell>
-                                        {ruleType === 'PACK' && (
-                                            <TableCell>
-                                                <TextField
-                                                    size="small"
-                                                    type="number"
-                                                    placeholder={`${defaultPackQuantity}`}
-                                                    value={mapping?.customPackQuantity ?? ''}
-                                                    onChange={(e) => handleCustomPackQuantityChange(targetVarId, e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                                                    inputProps={{ min: 1 }}
-                                                    sx={{ width: 70 }}
-                                                />
-                                            </TableCell>
-                                        )}
-                                        <TableCell>
-                                            <Button
-                                                size="small"
-                                                variant="outlined"
-                                                disabled={sourceMatches.length === 0}
-                                                onClick={() => handleApplyMappingToAll(targetVarId)}
-                                            >
-                                                Aplicar a todas
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
+                                    <RuleVariantRow
+                                        key={targetVarId}
+                                        targetVar={targetVar}
+                                        targetVarId={targetVarId}
+                                        mapping={mapping}
+                                        allSourceOptions={allSourceOptions}
+                                        availableSizes={availableSizes}
+                                        ruleType={ruleType}
+                                        defaultPackQuantity={defaultPackQuantity}
+                                        onAddSources={handleAddSourcesToVariant}
+                                        onRemoveSource={handleRemoveSourceFromVariant}
+                                        onMappingQuantityChange={handleMappingQuantityChange}
+                                        onCustomPackQuantityChange={handleCustomPackQuantityChange}
+                                        onApplyToAll={handleApplyMappingToAll}
+                                        onStrategyChange={handleStrategyChange}
+                                        onMatchSizeChange={handleMatchSizeChange}
+                                    />
                                 );
                             })}
                         </TableBody>
@@ -805,7 +831,7 @@ export const RuleEditorPage: React.FC = () => {
                                     <Button
                                         variant="contained"
                                         onClick={handleSave}
-                                        disabled={loading}
+                                        disabled={loading || !canSave}
                                     >
                                         {loading ? 'Guardando...' : 'Guardar Regla'}
                                     </Button>
