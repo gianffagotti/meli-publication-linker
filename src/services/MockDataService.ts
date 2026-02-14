@@ -13,6 +13,7 @@ const MOCK_RULES: StockRule[] = [
         targetThumbnail: "http://http2.mlstatic.com/D_812345-MLA123456789_122020-O.jpg",
         targetSku: "BOXER-FULL-001",
         ruleType: "FULL",
+        defaultPackQuantity: 1,
         components: [
             { sourceItemId: "MLA-BOXER-FLEX", quantity: 1 }
         ],
@@ -55,6 +56,7 @@ const MOCK_RULES: StockRule[] = [
         targetThumbnail: "http://http2.mlstatic.com/D_812345-MLA123456789_122020-O.jpg",
         targetSku: "BOXER-PACK-003",
         ruleType: "PACK",
+        defaultPackQuantity: 3,
         components: [
             { sourceItemId: "MLA-BOXER-FLEX", quantity: 3 }
         ],

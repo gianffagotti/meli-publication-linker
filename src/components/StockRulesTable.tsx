@@ -37,6 +37,19 @@ interface StockRulesTableProps {
     onEdit: (targetItemId: string) => void;
 }
 
+/** Summary label for rule (e.g. "Pack x3", "Híbrida", "Espejo"). */
+function getRuleSummary(row: StockRule): string {
+    switch (row.ruleType) {
+        case 'FULL': return 'Espejo';
+        case 'PACK': {
+            const hasPool = row.mappings?.some(m => (m.sourceMatches?.length ?? 0) > 1);
+            return hasPool ? 'Híbrida' : `Pack x${row.defaultPackQuantity ?? 1}`;
+        }
+        case 'COMBO': return 'Combo';
+        default: return row.ruleType;
+    }
+}
+
 const StockRuleRow: React.FC<{
     row: StockRule;
     onDeleteRule: (targetItemId: string) => void;
@@ -83,14 +96,19 @@ const StockRuleRow: React.FC<{
                         ID: {row.targetItemId}
                     </Typography>
                 </TableCell>
-                <TableCell align="center" width={120}>
-                    <Chip
-                        label={row.ruleType}
-                        size="small"
-                        color={getRuleColor(row.ruleType)}
-                        variant="outlined"
-                        sx={{ fontWeight: 'bold' }}
-                    />
+                <TableCell align="center" width={140}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                        <Chip
+                            label={row.ruleType}
+                            size="small"
+                            color={getRuleColor(row.ruleType)}
+                            variant="outlined"
+                            sx={{ fontWeight: 'bold' }}
+                        />
+                        <Typography variant="caption" color="text.secondary">
+                            {getRuleSummary(row)}
+                        </Typography>
+                    </Box>
                 </TableCell>
 
                 <TableCell align="right" width={120}>

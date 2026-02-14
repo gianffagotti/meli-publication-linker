@@ -32,7 +32,8 @@ import {
     ListItemSecondaryAction,
     Divider,
     Chip,
-    Avatar
+    Avatar,
+    Stack
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -57,7 +58,8 @@ export const RuleEditorPage: React.FC = () => {
     const [ruleType, setRuleType] = useState<RuleType>('PACK');
     const [targetItem, setTargetItem] = useState<MeliItem | null>(null);
 
-    // --- State: Step 2 (Components) ---
+    // --- State: Step 2 (Strategy + Components) ---
+    const [defaultPackQuantity, setDefaultPackQuantity] = useState<number>(1);
     const [components, setComponents] = useState<RuleComponent[]>([]);
     // We need full item details for sources to render Step 3, so we store them here
     const [sourceItemsDetails, setSourceItemsDetails] = useState<MeliItem[]>([]);
@@ -105,7 +107,13 @@ export const RuleEditorPage: React.FC = () => {
                 setTargetItem(targetDetails);
                 setComponents(rule.components);
                 setSourceItemsDetails(sourceItems);
-                setMappings(rule.mappings || []);
+                setMappings((rule.mappings || []).map(m => ({
+                    targetVariantId: m.targetVariantId,
+                    targetSku: m.targetSku,
+                    customPackQuantity: (m as VariantMapping & { packQuantity?: number }).packQuantity ?? m.customPackQuantity,
+                    sourceMatches: m.sourceMatches || []
+                })));
+                setDefaultPackQuantity(rule.defaultPackQuantity ?? 1);
 
                 // Optional: Load target details if we want to be ready for Step 3 immediately, 
                 // but usually that happens on transition. 
@@ -199,127 +207,69 @@ export const RuleEditorPage: React.FC = () => {
     };
 
     // --- Handlers: Step 3 ---
-    // Helper to generate "Surtido" / Grouped options
-    const getSourceOptions = (sourceItem: MeliItem) => {
-        const options: { value: string; label: string; isGroup?: boolean }[] = [];
-
-        // 1. Individual Variants
-        sourceItem.variations.forEach(v => {
-            options.push({
-                value: v.user_product_id.toString(),
-                label: `${v.sku || 'Sin SKU'} - ${v.description || 'Sin Desc'}`,
-                isGroup: false
+    /** Flat list of all source variations for "Add source" dropdown (all components). */
+    const getAllSourceOptions = (): { sourceItemId: string; sourceVariantId: string; sourceSku: string; label: string }[] => {
+        const options: { sourceItemId: string; sourceVariantId: string; sourceSku: string; label: string }[] = [];
+        sourceItemsDetails.forEach(sourceItem => {
+            (sourceItem.variations || []).forEach(v => {
+                options.push({
+                    sourceItemId: sourceItem.id,
+                    sourceVariantId: v.user_product_id.toString(),
+                    sourceSku: v.sku || '',
+                    label: `${v.sku || 'Sin SKU'} – ${v.description || sourceItem.title || sourceItem.id}`
+                });
             });
         });
-
-        // 2. Grouped Options (Surtido Logic)
-        // Simple heuristic: Group by "Size" if description contains typical size patterns or attributes
-        // For now, let's assume description is "Color Size" or similar.
-        // We will try to extract the "Size" part.
-        // A more robust way would be to use structured attributes if available in MeliItem (not currently in our interface).
-        // Let's implement a basic "By Size" grouping assuming the last word is size if > 1 word.
-
-        const sizeGroups: { [size: string]: string[] } = {};
-
-        sourceItem.variations.forEach(v => {
-            if (!v.sku) return;
-            const parts = v.sku.split('#');
-            if (parts.length > 1) {
-                const size = parts[parts.length - 1]; // Assume last part is size
-                if (!sizeGroups[size]) sizeGroups[size] = [];
-                sizeGroups[size].push(v.user_product_id.toString());
-            }
-        });
-
-        Object.keys(sizeGroups).forEach(size => {
-            // Only add group if it covers more than 1 variant
-            if (sizeGroups[size].length > 1) {
-                options.push({
-                    value: `GROUP#SIZE#${size}`,
-                    label: `Cualquier Color - Talle ${size}`,
-                    isGroup: true
-                });
-            }
-        });
-
         return options;
     };
 
-    const handleMappingChange = (targetVarId: string, sourceItemId: string, sourceVarId: string) => {
+    const handleAddSourceToVariant = (targetVarId: string, option: { sourceItemId: string; sourceVariantId: string; sourceSku: string }, quantity: number = 1) => {
         const newMappings = [...mappings];
-        const mappingIndex = newMappings.findIndex(m => m.targetVariantId === targetVarId);
-
+        let mappingIndex = newMappings.findIndex(m => m.targetVariantId === targetVarId);
         if (mappingIndex === -1) {
-            // Should not happen if initialized correctly, but for safety:
-            // We need target SKU to create a new mapping properly.
             const targetVar = targetItemDetails?.variations.find(v => v.user_product_id.toString() === targetVarId);
             if (!targetVar) return;
-
-            // Find source SKU
-            const sourceItem = sourceItemsDetails.find(i => i.id === sourceItemId);
-            const sourceVar = sourceItem?.variations.find(v => v.user_product_id.toString() === sourceVarId);
-
             newMappings.push({
                 targetVariantId: targetVarId,
                 targetSku: targetVar.sku || '',
-                sourceMatches: [{
-                    sourceItemId,
-                    sourceVariantId: sourceVarId,
-                    sourceSku: sourceVar?.sku || '',
-                    quantity: 1
-                }]
+                sourceMatches: []
             });
-        } else {
-            // Update existing mapping
-            const existingMapping = newMappings[mappingIndex];
-            const sourceMatches = [...existingMapping.sourceMatches];
-            const matchIndex = sourceMatches.findIndex(m => m.sourceItemId === sourceItemId);
-
-            // Find source data for the new value
-            const sourceItem = sourceItemsDetails.find(i => i.id === sourceItemId);
-            const sourceVar = sourceItem?.variations.find(v => v.user_product_id.toString() === sourceVarId);
-
-            if (matchIndex >= 0) {
-                if (sourceVarId === "") {
-                    // Remove if empty
-                    sourceMatches.splice(matchIndex, 1);
-                } else {
-                    // Update
-                    sourceMatches[matchIndex] = {
-                        ...sourceMatches[matchIndex],
-                        sourceVariantId: sourceVarId,
-                        sourceSku: sourceVar?.sku || '',
-                        quantity: sourceMatches[matchIndex].quantity
-                    };
-                }
-            } else if (sourceVarId !== "") {
-                // Add new match
-                sourceMatches.push({
-                    sourceItemId,
-                    sourceVariantId: sourceVarId,
-                    sourceSku: sourceVar?.sku || '',
-                    quantity: 1
-                });
-            }
-
-            newMappings[mappingIndex] = {
-                ...existingMapping,
-                sourceMatches
-            };
+            mappingIndex = newMappings.length - 1;
         }
+        const existing = newMappings[mappingIndex];
+        if (existing.sourceMatches.some(m => m.sourceItemId === option.sourceItemId && m.sourceVariantId === option.sourceVariantId)) return;
+        newMappings[mappingIndex] = {
+            ...existing,
+            sourceMatches: [...existing.sourceMatches, { ...option, quantity }]
+        };
         setMappings(newMappings);
     };
 
-    const getMappedValue = (targetVarId: string, sourceItemId: string): string => {
-        const mapping = mappings.find(m => m.targetVariantId === targetVarId);
-        const match = mapping?.sourceMatches.find(m => m.sourceItemId === sourceItemId);
-        return match?.sourceVariantId || '';
+    const handleRemoveSourceFromVariant = (targetVarId: string, matchIndex: number) => {
+        const newMappings = [...mappings];
+        const mappingIndex = newMappings.findIndex(m => m.targetVariantId === targetVarId);
+        if (mappingIndex === -1) return;
+        const existing = newMappings[mappingIndex];
+        const sourceMatches = existing.sourceMatches.filter((_, i) => i !== matchIndex);
+        newMappings[mappingIndex] = { ...existing, sourceMatches };
+        setMappings(newMappings);
     };
 
-    const getMappedQuantity = (targetVarId: string, sourceItemId: string): number => {
-        const mapping = mappings.find(m => m.targetVariantId === targetVarId);
-        const match = mapping?.sourceMatches.find(m => m.sourceItemId === sourceItemId);
-        return match?.quantity ?? 1;
+    const handleApplyMappingToAll = (fromTargetVarId: string) => {
+        const sourceMapping = mappings.find(m => m.targetVariantId === fromTargetVarId);
+        if (!sourceMapping || sourceMapping.sourceMatches.length === 0) return;
+        const targetVars = targetItemDetails?.variations ?? [];
+        const newMappings = targetVars.map(targetVar => {
+            const id = targetVar.user_product_id.toString();
+            if (id === fromTargetVarId) return sourceMapping;
+            return {
+                targetVariantId: id,
+                targetSku: targetVar.sku || '',
+                customPackQuantity: sourceMapping.customPackQuantity,
+                sourceMatches: [...sourceMapping.sourceMatches]
+            };
+        });
+        setMappings(newMappings);
     };
 
     const handleMappingQuantityChange = (targetVarId: string, sourceItemId: string, quantity: number) => {
@@ -333,6 +283,14 @@ export const RuleEditorPage: React.FC = () => {
         const sourceMatches = [...existingMapping.sourceMatches];
         sourceMatches[matchIndex] = { ...sourceMatches[matchIndex], quantity: qty };
         newMappings[mappingIndex] = { ...existingMapping, sourceMatches };
+        setMappings(newMappings);
+    };
+
+    const handleCustomPackQuantityChange = (targetVarId: string, value: number | '') => {
+        const newMappings = [...mappings];
+        const mappingIndex = newMappings.findIndex(m => m.targetVariantId === targetVarId);
+        if (mappingIndex === -1) return;
+        newMappings[mappingIndex] = { ...newMappings[mappingIndex], customPackQuantity: value === '' ? undefined : Math.max(1, value) };
         setMappings(newMappings);
     };
 
@@ -483,7 +441,14 @@ export const RuleEditorPage: React.FC = () => {
                 mappingsToSave = fullMappings;
             }
 
-            // Punto 7.4: Validación PACK/COMBO — todas las variantes destino deben tener al menos un mapeo
+            if (ruleType === 'PACK' || ruleType === 'COMBO') {
+                if (defaultPackQuantity < 1) {
+                    setError('La cantidad por pack debe ser al menos 1.');
+                    return;
+                }
+            }
+
+            // Validación: todas las variantes destino deben tener al menos un mapeo
             if (ruleType === 'PACK' || ruleType === 'COMBO') {
                 let detailsForValidation = targetItemDetails;
                 if (!detailsForValidation) {
@@ -501,10 +466,11 @@ export const RuleEditorPage: React.FC = () => {
                 }
             }
 
-            // Don't send GROUP#SIZE#... as sourceVariantId; backend expects null for "surtido"
+            // Build payload: backend expects packQuantity (not customPackQuantity), sourceMatches
             const payloadMappings = mappingsToSave.map(m => ({
                 targetVariantId: m.targetVariantId,
                 targetSku: m.targetSku,
+                packQuantity: m.customPackQuantity ?? undefined,
                 sourceMatches: m.sourceMatches.map((sm): RuleSourceMatchPayload => ({
                     sourceItemId: sm.sourceItemId,
                     sourceVariantId: sm.sourceVariantId.startsWith(GROUP_OPTION_PREFIX) ? null : sm.sourceVariantId,
@@ -513,16 +479,15 @@ export const RuleEditorPage: React.FC = () => {
                 }))
             }));
 
-            // Punto 6.4: targetSku nunca undefined; fallback a "" o ID del ítem
             const targetSku = targetItem.variations?.[0]?.sku ?? targetItem.id ?? '';
 
-            // Punto 7.6: Payload limpio — no enviar packMode ni packSurtidoGroupBy
             const rule: StockRule = {
                 targetItemId: targetItem.id,
                 targetTitle: targetItem.title ?? '',
                 targetThumbnail: targetItem.thumbnail ?? undefined,
                 targetSku,
                 ruleType,
+                defaultPackQuantity,
                 components,
                 mappings: payloadMappings as VariantMapping[]
             };
@@ -568,18 +533,25 @@ export const RuleEditorPage: React.FC = () => {
                         <ItemSearch label="Buscar Publicación a controlar..." onSelect={handleTargetSelect} />
 
                         {targetItem && (
-                            <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-                                <CardMedia
-                                    component="img"
-                                    sx={{ width: 80, height: 80, objectFit: 'contain', borderRadius: 1, border: '1px solid #eee' }}
-                                    image={targetItem.thumbnail}
-                                    alt={targetItem.title}
-                                />
-                                <Box>
-                                    <Typography variant="subtitle2" fontWeight="bold">{targetItem.title}</Typography>
-                                    <Typography variant="caption" color="text.secondary">{targetItem.id}</Typography>
+                            <>
+                                {targetItem.shipping?.logistic_type === 'fulfillment' && (
+                                    <Alert severity="warning" sx={{ mt: 2 }}>
+                                        Publicación FULL. Solo se actualizará el stock local.
+                                    </Alert>
+                                )}
+                                <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+                                    <CardMedia
+                                        component="img"
+                                        sx={{ width: 80, height: 80, objectFit: 'contain', borderRadius: 1, border: '1px solid #eee' }}
+                                        image={targetItem.thumbnail}
+                                        alt={targetItem.title}
+                                    />
+                                    <Box>
+                                        <Typography variant="subtitle2" fontWeight="bold">{targetItem.title}</Typography>
+                                        <Typography variant="caption" color="text.secondary">{targetItem.id}</Typography>
+                                    </Box>
                                 </Box>
-                            </Box>
+                            </>
                         )}
                     </CardContent>
                 </Card>
@@ -591,10 +563,23 @@ export const RuleEditorPage: React.FC = () => {
         <Grid container spacing={3}>
             <Grid size={12}>
                 <Typography variant="h6" gutterBottom>
-                    Componentes para: <strong>{targetItem?.title}</strong>
+                    Estrategia y componentes para: <strong>{targetItem?.title}</strong>
                 </Typography>
+                {(ruleType === 'PACK' || ruleType === 'COMBO') && (
+                    <Box sx={{ mb: 2 }}>
+                        <TextField
+                            label="Cantidad por pack (default)"
+                            type="number"
+                            value={defaultPackQuantity}
+                            onChange={(e) => setDefaultPackQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                            inputProps={{ min: 1 }}
+                            size="small"
+                            sx={{ width: 180 }}
+                        />
+                    </Box>
+                )}
                 <Alert severity="info" sx={{ mb: 2 }}>
-                    {ruleType === 'PACK' && 'Seleccione el producto unitario y defina la cantidad por pack.'}
+                    {ruleType === 'PACK' && 'Seleccione el producto unitario. La cantidad por pack se puede ajustar por variante en el siguiente paso.'}
                     {ruleType === 'FULL' && 'Seleccione el producto equivalente (1 a 1).'}
                     {ruleType === 'COMBO' && 'Agregue todos los productos que componen el combo.'}
                 </Alert>
@@ -650,88 +635,118 @@ export const RuleEditorPage: React.FC = () => {
         </Grid>
     );
 
-    const renderStep3 = () => (
-        <Box>
-            <Typography variant="h6" gutterBottom>Matriz de Variantes</Typography>
-            <Typography variant="body2" color="text.secondary" paragraph>
-                Relacione cada variante del objetivo con las variantes de los componentes.
-            </Typography>
+    const renderStep3 = () => {
+        const allSourceOptions = getAllSourceOptions();
+        return (
+            <Box>
+                <Typography variant="h6" gutterBottom>Mapeo de variantes</Typography>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                    Asigne una o más fuentes (SKU) a cada variante objetivo. Variante con más de un SKU = Pool/Surtido (se sumará el stock).
+                </Typography>
 
-            <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                    <TableHead sx={{ bgcolor: '#f5f5f5' }}>
-                        <TableRow>
-                            <TableCell><strong>Variante Objetivo</strong></TableCell>
-                            {components.map(comp => {
-                                const details = sourceItemsDetails.find(i => i.id === comp.sourceItemId);
+                <TableContainer component={Paper} variant="outlined">
+                    <Table size="small">
+                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                            <TableRow>
+                                <TableCell><strong>Variante objetivo</strong></TableCell>
+                                <TableCell><strong>Fuentes (SKU)</strong></TableCell>
+                                {ruleType === 'PACK' && <TableCell width={100}><strong>Cant. pack</strong></TableCell>}
+                                <TableCell width={120}><strong>Acción</strong></TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {targetItemDetails?.variations.map(targetVar => {
+                                const targetVarId = targetVar.user_product_id.toString();
+                                const mapping = mappings.find(m => m.targetVariantId === targetVarId);
+                                const sourceMatches = mapping?.sourceMatches ?? [];
+                                const isPool = sourceMatches.length > 1;
                                 return (
-                                    <TableCell key={comp.sourceItemId}>
-                                        <strong>{details?.title?.substring(0, 30)}...</strong>
-                                        <br />
-                                        <Typography variant="caption">(Qty: {comp.quantity})</Typography>
-                                    </TableCell>
-                                );
-                            })}
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {targetItemDetails?.variations.map(targetVar => (
-                            <TableRow key={targetVar.user_product_id}>
-                                <TableCell>
-                                    <Typography variant="body2" fontWeight="medium">
-                                        {targetVar.description}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                        {targetVar.sku || 'No SKU'}
-                                    </Typography>
-                                </TableCell>
-                                {components.map(comp => {
-                                    const details = sourceItemsDetails.find(i => i.id === comp.sourceItemId);
-                                    if (!details) return <TableCell key={comp.sourceItemId}>Error</TableCell>;
-
-                                    const options = getSourceOptions(details);
-                                    const targetVarId = targetVar.user_product_id.toString();
-                                    const hasMapping = !!getMappedValue(targetVarId, comp.sourceItemId);
-
-                                    return (
-                                        <TableCell key={comp.sourceItemId}>
-                                            <FormControl fullWidth size="small" sx={{ mb: ruleType === 'COMBO' ? 1 : 0 }}>
-                                                <Select
-                                                    value={getMappedValue(targetVarId, comp.sourceItemId)}
-                                                    onChange={(e) => handleMappingChange(targetVarId, comp.sourceItemId, e.target.value)}
-                                                    displayEmpty
-                                                >
-                                                    <MenuItem value=""><em>Sin Asignar</em></MenuItem>
-                                                    {options.map(opt => (
-                                                        <MenuItem key={opt.value} value={opt.value}>
-                                                            {opt.isGroup && <Chip label="Grupo" size="small" color="info" sx={{ mr: 1, height: 20 }} />}
-                                                            {opt.label}
-                                                        </MenuItem>
+                                    <TableRow key={targetVarId}>
+                                        <TableCell>
+                                            <Typography variant="body2" fontWeight="medium">{targetVar.description ?? targetVar.sku}</Typography>
+                                            <Typography variant="caption" color="text.secondary">{targetVar.sku || 'No SKU'}</Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Stack direction="row" flexWrap="wrap" gap={0.5} alignItems="center" sx={{ py: 0.5 }}>
+                                                {isPool && <Chip label="Surtido/Pool" size="small" color="secondary" sx={{ mr: 0.5 }} />}
+                                                {sourceMatches.map((sm, idx) => (
+                                                    <Chip
+                                                        key={`${sm.sourceItemId}-${sm.sourceVariantId}-${idx}`}
+                                                        label={ruleType === 'COMBO' ? `${sm.sourceSku} × ${sm.quantity}` : sm.sourceSku}
+                                                        size="small"
+                                                        onDelete={() => handleRemoveSourceFromVariant(targetVarId, idx)}
+                                                        sx={{ mb: 0.5 }}
+                                                    />
+                                                ))}
+                                                <FormControl size="small" sx={{ minWidth: 220 }}>
+                                                    <Select
+                                                        displayEmpty
+                                                        value=""
+                                                        onChange={(e) => {
+                                                            const val = e.target.value as string;
+                                                            if (!val) return;
+                                                            const opt = allSourceOptions.find(o => `${o.sourceItemId}:${o.sourceVariantId}` === val);
+                                                            if (opt) handleAddSourceToVariant(targetVarId, opt, ruleType === 'COMBO' ? 1 : defaultPackQuantity);
+                                                        }}
+                                                    >
+                                                        <MenuItem value=""><em>+ Agregar fuente</em></MenuItem>
+                                                        {allSourceOptions.map(opt => (
+                                                            <MenuItem key={`${opt.sourceItemId}-${opt.sourceVariantId}`} value={`${opt.sourceItemId}:${opt.sourceVariantId}`}>
+                                                                {opt.label}
+                                                            </MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </FormControl>
+                                            </Stack>
+                                            {ruleType === 'COMBO' && sourceMatches.length > 0 && (
+                                                <Box sx={{ mt: 0.5 }}>
+                                                    {sourceMatches.map((sm, idx) => (
+                                                        <TextField
+                                                            key={`qty-${targetVarId}-${idx}`}
+                                                            size="small"
+                                                            type="number"
+                                                            label={`Cant. ${sm.sourceSku}`}
+                                                            value={sm.quantity}
+                                                            onChange={(e) => handleMappingQuantityChange(targetVarId, sm.sourceItemId, parseInt(e.target.value, 10) || 1)}
+                                                            inputProps={{ min: 1 }}
+                                                            sx={{ width: 80, mr: 1, mt: 0.5 }}
+                                                        />
                                                     ))}
-                                                </Select>
-                                            </FormControl>
-                                            {ruleType === 'COMBO' && (
-                                                <TextField
-                                                    label="Cant."
-                                                    type="number"
-                                                    size="small"
-                                                    value={getMappedQuantity(targetVarId, comp.sourceItemId)}
-                                                    onChange={(e) => handleMappingQuantityChange(targetVarId, comp.sourceItemId, parseInt(e.target.value, 10) || 1)}
-                                                    disabled={!hasMapping}
-                                                    inputProps={{ min: 1 }}
-                                                    sx={{ width: 80 }}
-                                                />
+                                                </Box>
                                             )}
                                         </TableCell>
-                                    );
-                                })}
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </TableContainer>
-        </Box>
-    );
+                                        {ruleType === 'PACK' && (
+                                            <TableCell>
+                                                <TextField
+                                                    size="small"
+                                                    type="number"
+                                                    placeholder={`${defaultPackQuantity}`}
+                                                    value={mapping?.customPackQuantity ?? ''}
+                                                    onChange={(e) => handleCustomPackQuantityChange(targetVarId, e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                                                    inputProps={{ min: 1 }}
+                                                    sx={{ width: 70 }}
+                                                />
+                                            </TableCell>
+                                        )}
+                                        <TableCell>
+                                            <Button
+                                                size="small"
+                                                variant="outlined"
+                                                disabled={sourceMatches.length === 0}
+                                                onClick={() => handleApplyMappingToAll(targetVarId)}
+                                            >
+                                                Aplicar a todas
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+            </Box>
+        );
+    };
 
     return (
         <Box sx={{ p: 3, maxWidth: 1200, margin: '0 auto' }}>
