@@ -28,7 +28,7 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
             flexWrap: 'wrap'
         }}>
             <TextField
-                placeholder="Buscar por Título o SKU..."
+                placeholder="Buscar por título o MLA (objetivo o componentes)..."
                 variant="outlined"
                 size="small"
                 value={searchTerm}
@@ -48,7 +48,7 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
                 onClick={onNewLink}
                 size="large"
             >
-                NUEVO ENLACE
+                Nueva Regla
             </Button>
         </Box>
     );
