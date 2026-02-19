@@ -57,7 +57,7 @@ function showLogisticsBadge(rule: StockRule): boolean {
 
 function TargetCell({ row }: { row: StockRule }) {
   const title = row.targetItem?.title ?? row.targetTitle ?? row.targetItemId;
-  const href = `${ML_ITEM_BASE}/${row.targetItemId}`;
+  const href = `${ML_ITEM_BASE}/${row.targetItemId.replace(/^(MLA)(\d+)/, '$1-$2')}`;
 
   return (
     <TableCell>

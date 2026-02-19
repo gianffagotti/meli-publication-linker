@@ -264,7 +264,7 @@ export const RuleEditorPage: React.FC = () => {
             const sourceMatches: VariantMapping['sourceMatches'] = [];
             comps.forEach((comp) => {
                 const match = comp.sourceItem.variations?.find(
-                    (sv) => sv.sku && targetVar.sku && sv.sku === targetVar.sku
+                    (sv) => sv.sku && targetVar.sku && sv.sku.toLowerCase() === targetVar.sku.toLowerCase()
                 );
                 if (match) {
                     sourceMatches.push({
@@ -398,7 +398,7 @@ export const RuleEditorPage: React.FC = () => {
 
                 targetVars.forEach(targetVar => {
                     const sourceVar = sourceDetail?.variations.find(sv =>
-                        sv.sku && targetVar.sku && sv.sku === targetVar.sku
+                        sv.sku && targetVar.sku && sv.sku.toLowerCase() === targetVar.sku.toLowerCase()
                     );
                     if (sourceVar) {
                         fullMappings.push({

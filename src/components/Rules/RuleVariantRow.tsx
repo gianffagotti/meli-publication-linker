@@ -88,9 +88,9 @@ export const RuleVariantRow: React.FC<RuleVariantRowProps> = ({
         onPackSingleSelect?.(targetVarId, option);
     };
 
-    // --- FULL: match status ---
+    // --- FULL: match status (case insensitive per spec) ---
     const fullMatchSku = sourceItemForFull?.variations?.some(
-        (v) => v.sku && targetVar.sku && v.sku === targetVar.sku
+        (v) => v.sku && targetVar.sku && v.sku.toLowerCase() === targetVar.sku.toLowerCase()
     );
     const fullMatchStatus = targetVar.sku
         ? fullMatchSku

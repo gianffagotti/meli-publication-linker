@@ -3,19 +3,31 @@ import {
     Box,
     TextField,
     Button,
-    InputAdornment
+    InputAdornment,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
 } from '@mui/material';
 import { Search as SearchIcon, Add as AddIcon } from '@mui/icons-material';
+import type { RuleType } from '../models/types';
+
+export type RuleTypeFilter = '' | RuleType;
 
 interface DashboardToolbarProps {
     searchTerm: string;
     onSearchChange: (value: string) => void;
+    /** Filtro por tipo de regla: '' = Todos, 'FULL' | 'PACK' | 'COMBO' */
+    ruleTypeFilter?: RuleTypeFilter;
+    onRuleTypeFilterChange?: (value: RuleTypeFilter) => void;
     onNewLink: () => void;
 }
 
 export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
     searchTerm,
     onSearchChange,
+    ruleTypeFilter = '',
+    onRuleTypeFilterChange,
     onNewLink
 }) => {
     return (
@@ -42,6 +54,22 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
                     ),
                 }}
             />
+            {onRuleTypeFilterChange && (
+                <FormControl size="small" sx={{ minWidth: 140, bgcolor: 'white' }}>
+                    <InputLabel id="rule-type-filter-label">Tipo de regla</InputLabel>
+                    <Select
+                        labelId="rule-type-filter-label"
+                        value={ruleTypeFilter}
+                        label="Tipo de regla"
+                        onChange={(e) => onRuleTypeFilterChange(e.target.value as RuleTypeFilter)}
+                    >
+                        <MenuItem value="">Todos</MenuItem>
+                        <MenuItem value="FULL">FULL</MenuItem>
+                        <MenuItem value="PACK">PACK</MenuItem>
+                        <MenuItem value="COMBO">COMBO</MenuItem>
+                    </Select>
+                </FormControl>
+            )}
             <Button
                 variant="contained"
                 startIcon={<AddIcon />}

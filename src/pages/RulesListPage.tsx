@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { dataService } from '../services/apiFactory';
 import type { StockRule } from '../models/types';
 import { StockRulesTable } from '../components/StockRulesTable';
-import { DashboardToolbar } from '../components/DashboardToolbar';
+import { DashboardToolbar, type RuleTypeFilter } from '../components/DashboardToolbar';
 import { SearchOff as SearchOffIcon } from '@mui/icons-material';
 
 export const RulesListPage: React.FC = () => {
@@ -19,6 +19,7 @@ export const RulesListPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [ruleTypeFilter, setRuleTypeFilter] = useState<RuleTypeFilter>('');
 
   const fetchRules = async () => {
     setLoading(true);
@@ -53,8 +54,9 @@ export const RulesListPage: React.FC = () => {
     }
   };
 
-  /** Deep search: match Target (title or MLA ID) OR any Component (title or MLA ID). */
+  /** Filter by rule type + deep search: match Target (title or MLA ID) OR any Component (title or MLA ID). */
   const filteredRules = rules.filter((rule) => {
+    if (ruleTypeFilter && rule.ruleType !== ruleTypeFilter) return false;
     if (!searchTerm.trim()) return true;
     const term = searchTerm.toLowerCase().trim();
     const targetTitle = (rule.targetItem?.title ?? rule.targetTitle ?? '').toLowerCase();
@@ -74,6 +76,8 @@ export const RulesListPage: React.FC = () => {
       <DashboardToolbar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        ruleTypeFilter={ruleTypeFilter}
+        onRuleTypeFilterChange={setRuleTypeFilter}
         onNewLink={() => navigate('/rules/new')}
       />
 
