@@ -256,11 +256,68 @@ export const RuleEditorPage: React.FC = () => {
         setMappings(newMappings);
     };
 
+    const getSkuSegments = (sku: string): string[] =>
+        sku
+            .split('#')
+            .map((part) => part.trim())
+            .filter((part) => part.length > 0);
+
+    const getSkuColorSizeSuffix = (sku: string): { suffix: string; size: string } | null => {
+        const segments = getSkuSegments(sku);
+        if (segments.length < 2) return null;
+        const size = segments[segments.length - 1];
+        const color = segments[segments.length - 2];
+        return { suffix: `${color}#${size}`.toLowerCase(), size };
+    };
+
     /** Build initial mappings by SKU when entering Step 3. */
     const buildInitialMappings = (details: MeliItem, comps: RuleComponentWithItem[]): VariantMapping[] => {
         const newMappings: VariantMapping[] = [];
         if (!details.variations?.length) return newMappings;
         details.variations.forEach((targetVar) => {
+            const targetVariantId = targetVar.user_product_id.toString();
+            const targetSku = targetVar.sku || '';
+
+            if (ruleType === 'PACK') {
+                const comp = comps[0];
+                const targetSuffix = targetSku ? getSkuColorSizeSuffix(targetSku) : null;
+                const sourceVariants = comp?.sourceItem.variations ?? [];
+                const matches = targetSuffix
+                    ? sourceVariants.filter((sv) => {
+                        if (!sv.sku) return false;
+                        const sourceSuffix = getSkuColorSizeSuffix(sv.sku);
+                        return sourceSuffix?.suffix === targetSuffix.suffix;
+                    })
+                    : [];
+
+                if (matches.length === 1 && comp) {
+                    const match = matches[0];
+                    newMappings.push({
+                        targetVariantId,
+                        targetSku,
+                        strategy: 'EXPLICIT',
+                        sourceMatches: [{
+                            sourceItemId: comp.sourceItem.id,
+                            sourceVariantId: match.user_product_id.toString(),
+                            sourceSku: match.sku || '',
+                            quantity: comp.quantity,
+                        }],
+                    });
+                    return;
+                }
+
+                if (matches.length === 0 && targetSuffix?.size) {
+                    newMappings.push({
+                        targetVariantId,
+                        targetSku,
+                        strategy: 'DYNAMIC_SIZE',
+                        matchSize: targetSuffix.size,
+                        sourceMatches: [],
+                    });
+                    return;
+                }
+            }
+
             const sourceMatches: VariantMapping['sourceMatches'] = [];
             comps.forEach((comp) => {
                 const match = comp.sourceItem.variations?.find(
@@ -276,8 +333,8 @@ export const RuleEditorPage: React.FC = () => {
                 }
             });
             newMappings.push({
-                targetVariantId: targetVar.user_product_id.toString(),
-                targetSku: targetVar.sku || '',
+                targetVariantId,
+                targetSku,
                 strategy: 'EXPLICIT',
                 sourceMatches,
             });
