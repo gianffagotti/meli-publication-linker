@@ -78,6 +78,8 @@ export interface StockRule {
   targetThumbnail?: string | null;
   targetSku: string;
   ruleType: RuleType;
+  /** FULL: true if one or more variant SKUs were not found in Znube at save time. */
+  isIncomplete?: boolean;
   /** PACK/COMBO: default pack size. Spec V2. */
   defaultPackQuantity: number;
   components: RuleComponent[];
@@ -85,4 +87,31 @@ export interface StockRule {
   /** Hydrated data for UI (not part of DTO). */
   targetItem?: MeliItem;
   sourceItems?: MeliItem[];
+}
+
+/** Result of Znube SKU validation (POST /api/znube/validate-skus). */
+export interface SkuValidationResult {
+  sku: string;
+  exists: boolean;
+}
+
+/** Dashboard log entry (GET /api/dashboard/logs). */
+export interface DashboardLogEntry {
+  partitionKey: string;
+  rowKey: string;
+  severity: string;
+  category: string;
+  message: string;
+  details?: string | null;
+  entityIds: string[];
+  isRead: boolean;
+  timestamp?: string | null;
+}
+
+/** Response of POST /api/jobs/discover-full-rules. */
+export interface DiscoverFullRulesResult {
+  processed: number;
+  created: number;
+  incomplete: number;
+  message?: string;
 }

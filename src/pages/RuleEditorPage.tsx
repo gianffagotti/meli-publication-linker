@@ -29,11 +29,12 @@ import { ItemSearch } from '../components/Shared/ItemSearch';
 import { RuleVariantRow, type SourceOption } from '../components/Rules/RuleVariantRow';
 import { RuleComponentsStep, type RuleComponentWithItem } from '../components/Rules/RuleComponentsStep';
 import { dataService } from '../services/apiFactory';
-import type { MeliItem, StockRule, RuleType, RuleComponent, VariantMapping, RuleSourceMatchPayload, MappingStrategy } from '../models/types';
+import type { MeliItem, StockRule, RuleType, RuleComponent, VariantMapping, RuleSourceMatchPayload, MappingStrategy, SkuValidationResult } from '../models/types';
 import { useSourceSizes } from '../hooks/useSourceSizes';
 
 const STEPS = ['Seleccionar Objetivo', 'Definir Componentes', 'Mapear Variantes'];
-const STEPS_FULL = ['Seleccionar Objetivo', 'Definir Componentes', 'Validar coincidencia'];
+/** FULL: omit Paso 2 (componentes). Step 2 = Validar SKUs contra Znube. */
+const STEPS_FULL = ['Seleccionar Objetivo', 'Validar SKUs'];
 
 /** Backend does not accept this value as sourceVariantId; send null for "surtido". */
 const GROUP_OPTION_PREFIX = 'GROUP#';
@@ -54,6 +55,8 @@ export const RuleEditorPage: React.FC = () => {
     // --- State: Step 3 (Mapping) ---
     const [mappings, setMappings] = useState<VariantMapping[]>([]);
     const [targetItemDetails, setTargetItemDetails] = useState<MeliItem | null>(null);
+    /** FULL only: result of Znube SKU validation (step Validar SKUs). */
+    const [skuValidationResults, setSkuValidationResults] = useState<SkuValidationResult[] | null>(null);
 
     /** Unique sizes from source publications (for PACK Dynamic). */
     const sourceItemsForSizes = React.useMemo(() => components.map((c) => c.sourceItem), [components]);
@@ -105,8 +108,9 @@ export const RuleEditorPage: React.FC = () => {
                 })));
                 setTargetItemDetails(targetDetails);
 
-                // 5. Jump to mapping step (FULL: step 1 = componentes; PACK/COMBO: step 2 = mapeo)
+                // 5. FULL: step 1 = Validar SKUs; PACK/COMBO: step 2 = mapeo
                 setActiveStep(rule.ruleType === 'FULL' ? 1 : 2);
+                if (rule.ruleType === 'FULL') setSkuValidationResults(null);
 
             } catch (err) {
                 console.error(err);
@@ -117,6 +121,21 @@ export const RuleEditorPage: React.FC = () => {
         };
         loadRule();
     }, [targetItemId]);
+
+    // FULL: run Znube SKU validation when on step "Validar SKUs" and target details loaded
+    React.useEffect(() => {
+        if (ruleType !== 'FULL' || activeStep !== 1 || !targetItemDetails?.variations?.length) return;
+        const skus = targetItemDetails.variations.map(v => v.sku).filter((s): s is string => !!s?.trim());
+        if (skus.length === 0) {
+            setSkuValidationResults([]);
+            return;
+        }
+        let cancelled = false;
+        dataService.validateSkusInZnube(skus).then(results => {
+            if (!cancelled) setSkuValidationResults(results);
+        });
+        return () => { cancelled = true; };
+    }, [ruleType, activeStep, targetItemDetails]);
 
     // Inicialización segura al llegar al Paso 3 (mappings vacíos)
     React.useEffect(() => {
@@ -138,6 +157,7 @@ export const RuleEditorPage: React.FC = () => {
         setComponents([]);
         setMappings([]);
         setTargetItemDetails(null);
+        setSkuValidationResults(null);
     };
 
     // --- Handlers: Step 2 ---
@@ -351,12 +371,12 @@ export const RuleEditorPage: React.FC = () => {
             }
         }
 
-        if (activeStep === 1) {
+        if (activeStep === 1 && ruleType !== 'FULL') {
             if (components.length === 0) {
                 setError('Agregue al menos un componente.');
                 return;
             }
-            // Fetch target details before moving to Step 3
+            // Fetch target details before moving to Step 3 (PACK/COMBO)
             setLoading(true);
             try {
                 const details = await dataService.getItemDetails(targetItem!.id);
@@ -366,6 +386,21 @@ export const RuleEditorPage: React.FC = () => {
                     const newMappings = buildInitialMappings(details, components);
                     if (newMappings.length > 0) setMappings(newMappings);
                 }
+            } catch (err) {
+                console.error(err);
+                setError('Error al cargar detalles del objetivo.');
+                setLoading(false);
+                return;
+            } finally {
+                setLoading(false);
+            }
+        }
+        if (activeStep === 0 && ruleType === 'FULL') {
+            setLoading(true);
+            try {
+                const details = await dataService.getItemDetails(targetItem!.id);
+                setTargetItemDetails(details);
+                setSkuValidationResults(null);
             } catch (err) {
                 console.error(err);
                 setError('Error al cargar detalles del objetivo.');
@@ -411,7 +446,7 @@ export const RuleEditorPage: React.FC = () => {
         if (activeStep !== lastStepIndex) return true;
 
         if (ruleType === 'FULL') {
-            return !!(targetItem && components.length >= 1);
+            return !!(targetItem && targetItemDetails && (targetItemDetails.variations?.length ?? 0) > 0);
         }
         if (ruleType === 'PACK' || ruleType === 'COMBO') {
             if (!targetItem || components.length === 0) return false;
@@ -447,36 +482,13 @@ export const RuleEditorPage: React.FC = () => {
                     targetDetails = await dataService.getItemDetails(targetItem.id);
                     setTargetItemDetails(targetDetails);
                 }
-                const comp = components[0];
-                const sourceDetail = comp?.sourceItem;
                 const targetVars = targetDetails?.variations ?? [];
-                const fullMappings: VariantMapping[] = [];
-                const unmatchedTargetSkus: string[] = [];
-
-                targetVars.forEach(targetVar => {
-                    const sourceVar = sourceDetail?.variations.find(sv =>
-                        sv.sku && targetVar.sku && sv.sku.toLowerCase() === targetVar.sku.toLowerCase()
-                    );
-                    if (sourceVar) {
-                        fullMappings.push({
-                            targetVariantId: targetVar.user_product_id.toString(),
-                            targetSku: targetVar.sku || '',
-                            strategy: 'EXPLICIT',
-                            sourceMatches: [{
-                                sourceItemId: comp!.sourceItem.id,
-                                sourceVariantId: sourceVar.user_product_id.toString(),
-                                sourceSku: sourceVar.sku || '',
-                                quantity: 1
-                            }]
-                        });
-                    } else {
-                        if (targetVar.sku) unmatchedTargetSkus.push(targetVar.sku);
-                    }
-                });
-
-                if (unmatchedTargetSkus.length > 0) {
-                    console.warn('FULL: algunas variantes no tienen correspondencia por SKU:', unmatchedTargetSkus);
-                }
+                const fullMappings: VariantMapping[] = targetVars.map(targetVar => ({
+                    targetVariantId: targetVar.user_product_id.toString(),
+                    targetSku: targetVar.sku || '',
+                    strategy: 'EXPLICIT' as const,
+                    sourceMatches: []
+                }));
                 mappingsToSave = fullMappings;
             }
 
@@ -520,12 +532,13 @@ export const RuleEditorPage: React.FC = () => {
             }));
 
             const targetSku = targetItem.variations?.[0]?.sku ?? targetItem.id ?? '';
-            const payloadComponents: RuleComponent[] = components.map((c) => ({
+            const payloadComponents: RuleComponent[] = ruleType === 'FULL' ? [] : components.map((c) => ({
                 sourceItemId: c.sourceItem.id,
                 quantity: c.quantity,
             }));
             const derivedDefaultPackQuantity =
                 ruleType === 'PACK' && components[0] ? components[0].quantity : 1;
+            const hasMissingSku = ruleType === 'FULL' && skuValidationResults?.some(r => !r.exists);
 
             const rule: StockRule = {
                 targetItemId: targetItem.id,
@@ -533,6 +546,7 @@ export const RuleEditorPage: React.FC = () => {
                 targetThumbnail: targetItem.thumbnail ?? undefined,
                 targetSku,
                 ruleType,
+                ...(ruleType === 'FULL' && { isIncomplete: hasMissingSku }),
                 defaultPackQuantity: derivedDefaultPackQuantity,
                 components: payloadComponents,
                 mappings: payloadMappings as VariantMapping[],
@@ -615,6 +629,53 @@ export const RuleEditorPage: React.FC = () => {
         />
     );
 
+    /** FULL only: step "Validar SKUs" — list SKUs and Znube validation result, show warnings for missing. */
+    const renderFullValidateStep = () => {
+        const variations = targetItemDetails?.variations ?? [];
+        const missingSkus = skuValidationResults?.filter(r => !r.exists).map(r => r.sku) ?? [];
+        const loadingValidation = ruleType === 'FULL' && activeStep === 1 && variations.length > 0 && skuValidationResults === null;
+
+        return (
+            <Box>
+                <Typography variant="h6" gutterBottom>Validar SKUs en Znube</Typography>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                    Las variantes del artículo objetivo se validan contra el stock en Znube. Si un SKU no existe en Znube, la regla se guardará como incompleta y podrás completarla cuando el SKU esté dado de alta.
+                </Typography>
+                {loadingValidation && <Typography color="text.secondary">Validando SKUs...</Typography>}
+                <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
+                    <Table size="small">
+                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                            <TableRow>
+                                <TableCell><strong>SKU</strong></TableCell>
+                                <TableCell><strong>Estado en Znube</strong></TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {variations.map((v) => {
+                                const sku = v.sku?.trim() ?? '';
+                                const result = skuValidationResults?.find(r => r.sku.trim().toLowerCase() === sku.toLowerCase());
+                                const exists = result?.exists ?? false;
+                                return (
+                                    <TableRow key={v.user_product_id}>
+                                        <TableCell>{sku || '(sin SKU)'}</TableCell>
+                                        <TableCell>
+                                            {skuValidationResults === null ? '—' : exists ? 'OK' : 'No encontrado'}
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+                {missingSkus.length > 0 && (
+                    <Alert severity="warning" sx={{ mt: 2 }}>
+                        Los siguientes SKUs no están en Znube: <strong>{missingSkus.join(', ')}</strong>. La regla se guardará como incompleta.
+                    </Alert>
+                )}
+            </Box>
+        );
+    };
+
     const renderStep3 = () => {
         const sourceOptionsForPack = getSourceOptionsForPack();
         const defaultPackQty = components[0]?.quantity ?? 1;
@@ -626,7 +687,6 @@ export const RuleEditorPage: React.FC = () => {
                 <Typography variant="body2" color="text.secondary" paragraph>
                     {ruleType === 'PACK' && 'Asigne la variante de la publicación Source a cada variante objetivo (Manual) o use coincidencia por talle (Dinámico).'}
                     {ruleType === 'COMBO' && 'Para cada variante objetivo, elija la variante de cada publicación Source que la compone.'}
-                    {ruleType === 'FULL' && 'Comparación por SKU: las variantes con coincidencia se vincularán al guardar; las que no coincidan quedarán sin vincular.'}
                 </Typography>
 
                 <TableContainer component={Paper} variant="outlined">
@@ -634,7 +694,7 @@ export const RuleEditorPage: React.FC = () => {
                         <TableHead sx={{ bgcolor: '#f5f5f5' }}>
                             <TableRow>
                                 <TableCell><strong>Variante objetivo</strong></TableCell>
-                                <TableCell><strong>{ruleType === 'FULL' ? 'Estado' : 'Fuentes'}</strong></TableCell>
+                                <TableCell><strong>Fuentes</strong></TableCell>
                                 {ruleType === 'PACK' && <TableCell width={100}><strong>Cant. pack</strong></TableCell>}
                             </TableRow>
                         </TableHead>
@@ -705,7 +765,8 @@ export const RuleEditorPage: React.FC = () => {
 
                 <Box sx={{ minHeight: 300 }}>
                     {activeStep === 0 && renderStep1()}
-                    {activeStep === 1 && renderStep2()}
+                    {activeStep === 1 && ruleType === 'FULL' && renderFullValidateStep()}
+                    {activeStep === 1 && ruleType !== 'FULL' && renderStep2()}
                     {activeStep === 2 && renderStep3()}
                 </Box>
 

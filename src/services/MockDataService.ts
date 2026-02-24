@@ -149,4 +149,23 @@ export class MockDataService implements IDataService {
             MOCK_RULES.splice(index, 1);
         }
     }
+
+    async validateSkusInZnube(skus: string[]): Promise<import('../models/types').SkuValidationResult[]> {
+        await this.delay(300);
+        return skus.map(sku => ({ sku: sku.trim(), exists: true }));
+    }
+
+    async getDashboardLogs(_date: string, _severity?: string, _category?: string): Promise<import('../models/types').DashboardLogEntry[]> {
+        await this.delay(400);
+        return [];
+    }
+
+    async markDashboardLogRead(_partitionKey: string, _rowKey: string): Promise<void> {
+        await this.delay(200);
+    }
+
+    async runDiscoverFullRules(): Promise<import('../models/types').DiscoverFullRulesResult> {
+        await this.delay(1500);
+        return { processed: 0, created: 0, incomplete: 0, message: 'Discovery completed (mock).' };
+    }
 }
