@@ -326,6 +326,30 @@ export const RuleEditorPage: React.FC = () => {
                     return;
                 }
 
+                // Fallback: si no matcheó por SKU (COLOR#TALLE), intentar por descripción
+                if (matches.length === 0 && targetVar.description?.trim()) {
+                    const targetDesc = targetVar.description.trim().toLowerCase();
+                    const descMatches = sourceVariants.filter((sv) => {
+                        const srcDesc = (sv.description ?? '').trim().toLowerCase();
+                        return srcDesc && srcDesc === targetDesc;
+                    });
+                    if (descMatches.length === 1 && comp) {
+                        const match = descMatches[0];
+                        newMappings.push({
+                            targetVariantId,
+                            targetSku,
+                            strategy: 'EXPLICIT',
+                            sourceMatches: [{
+                                sourceItemId: comp.sourceItem.id,
+                                sourceVariantId: match.user_product_id.toString(),
+                                sourceSku: match.sku || '',
+                                quantity: comp.quantity,
+                            }],
+                        });
+                        return;
+                    }
+                }
+
                 if (matches.length === 0 && targetSuffix?.size) {
                     newMappings.push({
                         targetVariantId,
