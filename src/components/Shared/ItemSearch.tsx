@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Autocomplete, TextField, CircularProgress, Box, Avatar, Grid } from '@mui/material';
+import { Autocomplete, TextField, CircularProgress, Box, Avatar } from '@mui/material';
 import { debounce } from '@mui/material/utils';
 import { dataService } from '../../services/apiFactory';
 import type { MeliItem } from '../../models/types';
@@ -14,6 +14,7 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
     const [options, setOptions] = useState<readonly MeliItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [inputValue, setInputValue] = useState('');
+    const [value, setValue] = useState<MeliItem | null>(null);
 
     const fetchItems = useMemo(
         () =>
@@ -37,6 +38,12 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
             return undefined;
         }
 
+        // Skip search when input was filled by selecting an option (avoids double search)
+        if (value && inputValue === (value.title || '')) {
+            setLoading(false);
+            return undefined;
+        }
+
         setLoading(true);
 
         fetchItems({ input: inputValue }, (results?: readonly MeliItem[]) => {
@@ -55,12 +62,24 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
         return () => {
             active = false;
         };
-    }, [inputValue, fetchItems]);
+    }, [inputValue, fetchItems, value]);
+
+    // Sync input to selected value when an item is chosen (keeps controlled Autocomplete consistent)
+    useEffect(() => {
+        if (value != null) {
+            setInputValue(value.title || '');
+        }
+    }, [value]);
 
     return (
         <Autocomplete
             id="asynchronous-item-search"
             fullWidth
+            value={value ?? null}
+            inputValue={inputValue}
+            onInputChange={(_, newInputValue) => {
+                setInputValue(newInputValue);
+            }}
             open={open}
             onOpen={() => {
                 setOpen(true);
@@ -68,34 +87,30 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
             onClose={() => {
                 setOpen(false);
             }}
-            isOptionEqualToValue={(option, value) => option.id === value.id}
+            isOptionEqualToValue={(option, val) => option.id === val.id}
             getOptionLabel={(option) => `${option.title || ''}`}
             filterOptions={(x) => x}
             options={options}
             loading={loading}
-            onInputChange={(_, newInputValue) => {
-                setInputValue(newInputValue);
-            }}
             onChange={(_, newValue) => {
+                setValue(newValue);
                 onSelect(newValue);
             }}
             renderOption={(props, option) => {
-                // Extract key from props to avoid spreading it into li
                 const { key, ...otherProps } = props;
                 return (
                     <li key={key} {...otherProps}>
-                        <Grid container alignItems="center">
-                            {/* @ts-ignore */}
-                            <Grid item sx={{ display: 'flex', width: 44 }}>
-                                <Avatar src={option.thumbnail || ''} alt={option.title || ''} variant="square" />
-                            </Grid>
-                            {/* @ts-ignore */}
-                            <Grid item sx={{ width: 'calc(100% - 44px)', wordWrap: 'break-word' }}>
-                                <Box component="span" sx={{ fontWeight: 'bold' }}>
-                                    {option.title || 'Sin Título'}
-                                </Box>
-                            </Grid>
-                        </Grid>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar
+                                src={option.thumbnail || ''}
+                                alt={option.title || ''}
+                                variant="square"
+                                sx={{ width: 44, height: 44, flexShrink: 0 }}
+                            />
+                            <Box component="span" sx={{ flex: 1, minWidth: 0, wordWrap: 'break-word', fontWeight: 'bold' }}>
+                                {option.title || 'Sin Título'}
+                            </Box>
+                        </Box>
                     </li>
                 );
             }}

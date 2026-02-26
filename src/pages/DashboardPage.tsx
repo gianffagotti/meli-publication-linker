@@ -1,127 +1,303 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-    Box,
-    CircularProgress,
-    Alert,
-    Button,
-    Typography,
-    Container
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
+  Collapse,
+  Alert,
+  Chip,
+  CircularProgress,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { dataService } from '../services/apiFactory';
-import type { StockRuleGroup } from '../models/types';
-import { StockRulesTable } from '../components/StockRulesTable';
-import { DashboardToolbar } from '../components/DashboardToolbar';
-import { SearchOff as SearchOffIcon } from '@mui/icons-material';
+import type { DashboardLogEntry } from '../models/types';
+
+const SEVERITIES = ['', 'Info', 'Warning', 'Error'];
+const CATEGORIES = ['', 'FullRuleDiscovery', 'StockSync'];
+
+function formatDateForApi(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getLast30Days(): { value: string; label: string }[] {
+  const items: { value: string; label: string }[] = [];
+  const today = new Date();
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const value = formatDateForApi(d);
+    const label = i === 0 ? 'Hoy' : i === 1 ? 'Ayer' : value;
+    items.push({ value, label });
+  }
+  return items;
+}
+
+const DATE_OPTIONS = getLast30Days();
 
 export const DashboardPage: React.FC = () => {
-    const navigate = useNavigate();
-    const [rules, setRules] = useState<StockRuleGroup[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
+  const [date, setDate] = useState<string>(() => formatDateForApi(new Date()));
+  const [severity, setSeverity] = useState<string>('');
+  const [category, setCategory] = useState<string>('');
+  const [logs, setLogs] = useState<DashboardLogEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [discoverRunning, setDiscoverRunning] = useState(false);
+  const [discoverResult, setDiscoverResult] = useState<{ processed: number; created: number; incomplete: number } | null>(null);
 
-    const fetchRules = async () => {
-        setLoading(true);
-        try {
-            const data = await dataService.getStockRules();
-            setRules(data);
-        } catch (err) {
-            console.error(err);
-            setError('Error al cargar las reglas de stock');
-        } finally {
-            setLoading(false);
-        }
-    };
+  const loadLogs = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await dataService.getDashboardLogs(
+        date,
+        severity || undefined,
+        category || undefined,
+        signal
+      );
+      if (signal?.aborted) return;
+      setLogs(list);
+    } catch (err) {
+      if (signal?.aborted) return;
+      setError(err instanceof Error ? err.message : 'Error al cargar logs.');
+      setLogs([]);
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [date, severity, category]);
 
-    useEffect(() => {
-        fetchRules();
-    }, []);
+  React.useEffect(() => {
+    const ac = new AbortController();
+    loadLogs(ac.signal);
+    return () => ac.abort();
+  }, [loadLogs]);
 
-    const handleEditChild = (motherId: string, childId: string) => {
-        navigate(`/rules/${motherId}/edit/${childId}`);
-    };
+  const handleMarkRead = async (entry: DashboardLogEntry) => {
+    try {
+      await dataService.markDashboardLogRead(entry.partitionKey, entry.rowKey);
+      setLogs((prev) =>
+        prev.map((e) =>
+          e.partitionKey === entry.partitionKey && e.rowKey === entry.rowKey
+            ? { ...e, isRead: true }
+            : e
+        )
+      );
+    } catch {
+      // ignore
+    }
+  };
 
-    const handleDeleteGroup = async (motherId: string) => {
-        if (window.confirm('¿Está seguro de que desea eliminar este enlace? Esto eliminará todas las reglas asociadas con esta publicación.')) {
-            try {
-                await dataService.deleteStockRuleGroup(motherId);
-                await fetchRules();
-            } catch (err) {
-                console.error(err);
-                setError('Error al eliminar las reglas');
-            }
-        }
-    };
+  const handleDiscoverFullRules = async () => {
+    setDiscoverRunning(true);
+    setDiscoverResult(null);
+    setError(null);
+    try {
+      const result = await dataService.runDiscoverFullRules();
+      setDiscoverResult({ processed: result.processed, created: result.created, incomplete: result.incomplete });
+      setDate(formatDateForApi(new Date()));
+      await loadLogs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al ejecutar descubrimiento.');
+    } finally {
+      setDiscoverRunning(false);
+    }
+  };
 
-    const handleDeleteRule = async (motherId: string, childId: string) => {
-        if (window.confirm('¿Está seguro de que desea eliminar este enlace? Esto eliminará todas las reglas asociadas con esta publicación.')) {
-            try {
-                await dataService.deleteStockRule(motherId, childId);
-                await fetchRules();
-            } catch (err) {
-                console.error(err);
-                setError('Error al eliminar la regla');
-            }
-        }
-    };
+  const toggleExpand = (pk: string, rk: string) => {
+    const key = `${pk}|${rk}`;
+    setExpandedKey((prev) => (prev === key ? null : key));
+  };
 
-    // Filter rules based on search term
-    const filteredRules = rules.filter(rule => {
-        if (!searchTerm) return true;
-        const term = searchTerm.toLowerCase();
-        return (
-            (rule.motherTitle?.toLowerCase() || '').includes(term)
-        );
-    });
+  return (
+    <Box>
+      <Typography variant="h4" component="h1" sx={{ fontWeight: 700, mb: 3 }}>
+        Dashboard de Sincronización
+      </Typography>
 
-    return (
-        <Box sx={{ minHeight: '100vh', bgcolor: 'grey.100', py: 4 }}>
-            <Container maxWidth="xl">
-                <DashboardToolbar
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                    onNewLink={() => navigate('/rules/new')}
-                />
+      <Card variant="outlined" sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Descubrir reglas FULL
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Escanea publicaciones Fulfillment en MELI y crea reglas FULL cuando los SKUs existen en Znube.
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={discoverRunning ? <CircularProgress size={20} color="inherit" /> : <AutoAwesomeIcon />}
+            onClick={handleDiscoverFullRules}
+            disabled={discoverRunning}
+          >
+            {discoverRunning ? 'Ejecutando...' : 'Descubrir reglas FULL'}
+          </Button>
+          {discoverResult && (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              Procesadas: {discoverResult.processed}, reglas creadas: {discoverResult.created}, incompletas: {discoverResult.incomplete}.
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
-                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <Card variant="outlined">
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Logs
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>Fecha</InputLabel>
+              <Select
+                value={date}
+                label="Fecha"
+                onChange={(e) => setDate(e.target.value)}
+              >
+                {DATE_OPTIONS.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Severidad</InputLabel>
+              <Select
+                value={severity}
+                label="Severidad"
+                onChange={(e) => setSeverity(e.target.value)}
+              >
+                {SEVERITIES.map((s) => (
+                  <MenuItem key={s || '_'} value={s}>
+                    {s || 'Todas'}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>Categoría</InputLabel>
+              <Select
+                value={category}
+                label="Categoría"
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                {CATEGORIES.map((c) => (
+                  <MenuItem key={c || '_'} value={c}>
+                    {c || 'Todas'}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => loadLogs()}
+              disabled={loading}
+            >
+              {loading ? 'Cargando...' : 'Actualizar'}
+            </Button>
+          </Box>
 
-                {loading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-                        <CircularProgress />
-                    </Box>
-                ) : (
-                    <>
-                        {filteredRules.length > 0 ? (
-                            <StockRulesTable
-                                rules={filteredRules}
-                                onDeleteGroup={handleDeleteGroup}
-                                onDeleteRule={handleDeleteRule}
-                                onEdit={handleEditChild}
-                            />
-                        ) : (
-                            <Box sx={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                mt: 8,
-                                opacity: 0.7
-                            }}>
-                                <SearchOffIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                                <Typography variant="h6" color="text.secondary">
-                                    {searchTerm ? 'No se encontraron reglas que coincidan con su búsqueda' : 'No se encontraron reglas'}
-                                </Typography>
-                                {searchTerm && (
-                                    <Button sx={{ mt: 1 }} onClick={() => setSearchTerm('')}>
-                                        Limpiar Búsqueda
-                                    </Button>
-                                )}
-                            </Box>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
+
+          {loading && logs.length === 0 ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : logs.length === 0 ? (
+            <Typography color="text.secondary">No hay logs para esta fecha o filtros.</Typography>
+          ) : (
+            <List dense disablePadding>
+              {logs.map((entry, index) => {
+                const key = entry.partitionKey && entry.rowKey
+                  ? `${entry.partitionKey}|${entry.rowKey}`
+                  : `log-${index}`;
+                const isExpanded = expandedKey === key;
+                const severityColor =
+                  entry.severity === 'Error' ? 'error' : entry.severity === 'Warning' ? 'warning' : 'default';
+                return (
+                  <React.Fragment key={key}>
+                    <ListItem
+                      sx={{
+                        bgcolor: entry.isRead ? 'action.hover' : undefined,
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      <IconButton size="small" onClick={() => toggleExpand(entry.partitionKey, entry.rowKey)}>
+                        {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      </IconButton>
+                      <ListItemText
+                        primary={entry.message}
+                        secondary={
+                          <Box component="div" sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', mt: 0.5 }}>
+                            <Chip size="small" label={entry.severity || 'Info'} color={severityColor} />
+                            {entry.category && <Chip size="small" label={entry.category} variant="outlined" />}
+                            {entry.timestamp && (
+                              <Typography component="span" variant="caption" color="text.secondary">
+                                {new Date(entry.timestamp).toLocaleString()}
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                        primaryTypographyProps={{ variant: 'body2' }}
+                        secondaryTypographyProps={{ component: 'div' }}
+                      />
+                      <ListItemSecondaryAction>
+                        {!entry.isRead && (
+                          <IconButton
+                            size="small"
+                            title="Marcar como leído"
+                            onClick={() => handleMarkRead(entry)}
+                          >
+                            <CheckCircleOutlineIcon fontSize="small" />
+                          </IconButton>
                         )}
-                    </>
-                )}
-            </Container>
-        </Box>
-    );
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                    <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                      <Box sx={{ pl: 4, pr: 2, py: 1, bgcolor: 'grey.50' }}>
+                        {entry.details && (
+                          <Typography variant="caption" component="pre" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                            {entry.details}
+                          </Typography>
+                        )}
+                        {entry.entityIds?.length > 0 && (
+                          <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                            IDs: {entry.entityIds.join(', ')}
+                          </Typography>
+                        )}
+                        {!entry.details && (!entry.entityIds?.length) && (
+                          <Typography variant="caption" color="text.secondary">Sin detalles</Typography>
+                        )}
+                      </Box>
+                    </Collapse>
+                  </React.Fragment>
+                );
+              })}
+            </List>
+          )}
+        </CardContent>
+      </Card>
+    </Box>
+  );
 };

@@ -1,11 +1,94 @@
 import type { IDataService } from './IDataService';
-import type { MeliItem, StockRuleGroup } from '../models/types';
+import type { MeliItem, StockRule } from '../models/types';
 import mockItems from '../mocks/mockItems.json';
-import mockRules from '../mocks/mockRules.json';
 
 // Initialize in-memory data from JSON files
 const MOCK_ITEMS: MeliItem[] = mockItems as unknown as MeliItem[];
-const MOCK_RULES: StockRuleGroup[] = [...mockRules] as StockRuleGroup[];
+
+// Hardcoded new rules
+const MOCK_RULES: StockRule[] = [
+    {
+        targetItemId: "MLA-BOXER-FULL",
+        targetTitle: "Boxer Full Example",
+        targetThumbnail: "http://http2.mlstatic.com/D_812345-MLA123456789_122020-O.jpg",
+        targetSku: "BOXER-FULL-001",
+        ruleType: "FULL",
+        defaultPackQuantity: 1,
+        components: [
+            { sourceItemId: "MLA-BOXER-FLEX", quantity: 1 }
+        ],
+        mappings: [
+            {
+                targetVariantId: "201",
+                targetSku: "VAR-FULL-201",
+                strategy: "EXPLICIT",
+                sourceMatches: [{
+                    sourceItemId: "MLA-BOXER-FLEX",
+                    sourceVariantId: "101",
+                    sourceSku: "VAR-FLEX-101",
+                    quantity: 1
+                }]
+            },
+            {
+                targetVariantId: "202",
+                targetSku: "VAR-FULL-202",
+                strategy: "EXPLICIT",
+                sourceMatches: [{
+                    sourceItemId: "MLA-BOXER-FLEX",
+                    sourceVariantId: "102",
+                    sourceSku: "VAR-FLEX-102",
+                    quantity: 1
+                }]
+            },
+            {
+                targetVariantId: "203",
+                targetSku: "VAR-FULL-203",
+                strategy: "EXPLICIT",
+                sourceMatches: [{
+                    sourceItemId: "MLA-BOXER-FLEX",
+                    sourceVariantId: "103",
+                    sourceSku: "VAR-FLEX-103",
+                    quantity: 1
+                }]
+            }
+        ]
+    },
+    {
+        targetItemId: "MLA-BOXER-PACK3",
+        targetTitle: "Boxer Pack x3 Example",
+        targetThumbnail: "http://http2.mlstatic.com/D_812345-MLA123456789_122020-O.jpg",
+        targetSku: "BOXER-PACK-003",
+        ruleType: "PACK",
+        defaultPackQuantity: 3,
+        components: [
+            { sourceItemId: "MLA-BOXER-FLEX", quantity: 3 }
+        ],
+        mappings: [
+            {
+                targetVariantId: "301",
+                targetSku: "VAR-PACK-301",
+                strategy: "EXPLICIT",
+                sourceMatches: [{
+                    sourceItemId: "MLA-BOXER-FLEX",
+                    sourceVariantId: "101",
+                    sourceSku: "VAR-FLEX-101",
+                    quantity: 3
+                }]
+            },
+            {
+                targetVariantId: "302",
+                targetSku: "VAR-PACK-302",
+                strategy: "EXPLICIT",
+                sourceMatches: [{
+                    sourceItemId: "MLA-BOXER-FLEX",
+                    sourceVariantId: "102",
+                    sourceSku: "VAR-FLEX-102",
+                    quantity: 3
+                }]
+            }
+        ]
+    }
+];
 
 export class MockDataService implements IDataService {
     private delay(ms: number) {
@@ -28,55 +111,61 @@ export class MockDataService implements IDataService {
         return item;
     }
 
-    async getStockRules(): Promise<StockRuleGroup[]> {
+    async getStockRules(): Promise<StockRule[]> {
         await this.delay(500);
-        return MOCK_RULES.map(ruleGroup => {
-            const item = MOCK_ITEMS.find(i => i.id === ruleGroup.motherItemId);
+        return MOCK_RULES.map(rule => {
+            const targetItem = MOCK_ITEMS.find(i => i.id === rule.targetItemId);
+            const sourceItems = rule.components.map(c => MOCK_ITEMS.find(i => i.id === c.sourceItemId)).filter((i): i is MeliItem => !!i);
             return {
-                ...ruleGroup,
-                motherTitle: item?.title,
-                motherThumbnail: item?.thumbnail
+                ...rule,
+                targetItem,
+                sourceItems
             };
         });
     }
 
-    async saveStockRule(rule: StockRuleGroup): Promise<void> {
+    async getStockRule(targetItemId: string): Promise<StockRule | undefined> {
         await this.delay(500);
-        const index = MOCK_RULES.findIndex(r => r.motherItemId === rule.motherItemId);
+        const rules = await this.getStockRules();
+        return rules.find(r => r.targetItemId === targetItemId);
+    }
+
+    async saveStockRule(rule: StockRule): Promise<void> {
+        await this.delay(500);
+        const index = MOCK_RULES.findIndex(r => r.targetItemId === rule.targetItemId);
         if (index >= 0) {
-            // Update existing group
+            // Update existing rule
             MOCK_RULES[index] = rule;
         } else {
-            // Add new group
+            // Add new rule
             MOCK_RULES.push(rule);
         }
     }
 
-    async deleteStockRule(motherId: string, childId: string): Promise<void> {
+    async deleteStockRule(targetItemId: string): Promise<void> {
         await this.delay(500);
-        const groupIndex = MOCK_RULES.findIndex(r => r.motherItemId === motherId);
-
-        if (groupIndex >= 0) {
-            const group = MOCK_RULES[groupIndex];
-            // Filter out the rule for the specific child item
-            group.rules = group.rules.filter(r => r.childItemId !== childId);
-
-            // If no rules left in the group, we might want to remove the group itself, 
-            // or keep it empty. For now, let's keep it as is or remove if empty?
-            // Requirement says "Remove the specific rule", so filtering is correct.
-            // If the group becomes empty, it's fine to leave it or remove it.
-            // Let's remove the group if it has no rules left to keep it clean.
-            if (group.rules.length === 0) {
-                MOCK_RULES.splice(groupIndex, 1);
-            }
+        const index = MOCK_RULES.findIndex(r => r.targetItemId === targetItemId);
+        if (index >= 0) {
+            MOCK_RULES.splice(index, 1);
         }
     }
 
-    async deleteStockRuleGroup(motherId: string): Promise<void> {
-        await this.delay(500);
-        const groupIndex = MOCK_RULES.findIndex(r => r.motherItemId === motherId);
-        if (groupIndex >= 0) {
-            MOCK_RULES.splice(groupIndex, 1);
-        }
+    async validateSkusInZnube(skus: string[]): Promise<import('../models/types').SkuValidationResult[]> {
+        await this.delay(300);
+        return skus.map(sku => ({ sku: sku.trim(), exists: true }));
+    }
+
+    async getDashboardLogs(_date: string, _severity?: string, _category?: string, _signal?: AbortSignal): Promise<import('../models/types').DashboardLogEntry[]> {
+        await this.delay(400);
+        return [];
+    }
+
+    async markDashboardLogRead(_partitionKey: string, _rowKey: string): Promise<void> {
+        await this.delay(200);
+    }
+
+    async runDiscoverFullRules(): Promise<import('../models/types').DiscoverFullRulesResult> {
+        await this.delay(1500);
+        return { processed: 0, created: 0, incomplete: 0, message: 'Discovery completed (mock).' };
     }
 }

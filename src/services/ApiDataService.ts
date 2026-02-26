@@ -1,6 +1,24 @@
 import axios from 'axios';
 import type { IDataService } from './IDataService';
-import type { MeliItem, StockRuleGroup } from '../models/types';
+import type { MeliItem, StockRule, SkuValidationResult, DashboardLogEntry, DiscoverFullRulesResult } from '../models/types';
+
+/** Normalizes API response (PascalCase or camelCase) to DashboardLogEntry. */
+function normalizeDashboardLogEntry(raw: Record<string, unknown>): DashboardLogEntry {
+    const pk = raw.partitionKey ?? raw.PartitionKey ?? '';
+    const rk = raw.rowKey ?? raw.RowKey ?? '';
+    const entIds = raw.entityIds ?? raw.EntityIds;
+    return {
+        partitionKey: String(pk),
+        rowKey: String(rk),
+        severity: String(raw.severity ?? raw.Severity ?? 'Info'),
+        category: String(raw.category ?? raw.Category ?? ''),
+        message: String(raw.message ?? raw.Message ?? ''),
+        details: String(raw.details ?? raw.Details ?? null),
+        entityIds: Array.isArray(entIds) ? entIds.map(String) : [],
+        isRead: Boolean(raw.isRead ?? raw.IsRead),
+        timestamp: String(raw.timestamp ?? raw.Timestamp ?? null),
+    };
+}
 
 export class ApiDataService implements IDataService {
     async searchItems(query: string): Promise<MeliItem[]> {
@@ -13,20 +31,56 @@ export class ApiDataService implements IDataService {
         return response.data;
     }
 
-    async getStockRules(): Promise<StockRuleGroup[]> {
-        const response = await axios.get(`/api/rules`);
+    /** GET rules — matches [Route("rules")] */
+    async getStockRules(): Promise<StockRule[]> {
+        const response = await axios.get<StockRule[]>(`/api/rules`);
         return Array.isArray(response.data) ? response.data : [];
     }
 
-    async saveStockRule(rule: StockRuleGroup): Promise<void> {
+    /** GET rules/{targetItemId} — matches [Route("rules/{targetItemId}")] */
+    async getStockRule(targetItemId: string): Promise<StockRule | undefined> {
+        try {
+            const response = await axios.get<StockRule>(`/api/rules/${encodeURIComponent(targetItemId)}`);
+            return response.data;
+        } catch (err: unknown) {
+            if (axios.isAxiosError(err) && err.response?.status === 404) {
+                return undefined;
+            }
+            throw err;
+        }
+    }
+
+    async saveStockRule(rule: StockRule): Promise<void> {
         await axios.post(`/api/rules`, rule);
     }
 
-    async deleteStockRule(motherId: string, childId: string): Promise<void> {
-        await axios.delete(`/api/rules/${motherId}/${childId}`);
+    async deleteStockRule(targetItemId: string): Promise<void> {
+        await axios.delete(`/api/rules/${targetItemId}`);
     }
 
-    async deleteStockRuleGroup(motherItemId: string): Promise<void> {
-        await axios.delete(`/api/rules-group/${motherItemId}`);
+    async validateSkusInZnube(skus: string[]): Promise<SkuValidationResult[]> {
+        if (!skus.length) return [];
+        const response = await axios.post<{ results: SkuValidationResult[] }>(`/api/znube/validate-skus`, { skus });
+        return response.data?.results ?? [];
+    }
+
+    async getDashboardLogs(date: string, severity?: string, category?: string, signal?: AbortSignal): Promise<DashboardLogEntry[]> {
+        const params: Record<string, string> = { date };
+        if (severity) params.severity = severity;
+        if (category) params.category = category;
+        const response = await axios.get<Record<string, unknown>[]>(`/api/dashboard/logs`, { params, signal });
+        const raw = Array.isArray(response.data) ? response.data : [];
+        return raw.map(normalizeDashboardLogEntry);
+    }
+
+    async markDashboardLogRead(partitionKey: string, rowKey: string): Promise<void> {
+        await axios.patch(
+            `/api/dashboard/logs/${encodeURIComponent(partitionKey)}/${encodeURIComponent(rowKey)}/read`
+        );
+    }
+
+    async runDiscoverFullRules(): Promise<DiscoverFullRulesResult> {
+        const response = await axios.post<DiscoverFullRulesResult>(`/api/jobs/discover-full-rules`);
+        return response.data;
     }
 }
