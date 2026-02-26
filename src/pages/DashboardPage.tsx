@@ -62,26 +62,31 @@ export const DashboardPage: React.FC = () => {
   const [discoverRunning, setDiscoverRunning] = useState(false);
   const [discoverResult, setDiscoverResult] = useState<{ processed: number; created: number; incomplete: number } | null>(null);
 
-  const loadLogs = useCallback(async () => {
+  const loadLogs = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
       const list = await dataService.getDashboardLogs(
         date,
         severity || undefined,
-        category || undefined
+        category || undefined,
+        signal
       );
+      if (signal?.aborted) return;
       setLogs(list);
     } catch (err) {
+      if (signal?.aborted) return;
       setError(err instanceof Error ? err.message : 'Error al cargar logs.');
       setLogs([]);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [date, severity, category]);
 
   React.useEffect(() => {
-    loadLogs();
+    const ac = new AbortController();
+    loadLogs(ac.signal);
+    return () => ac.abort();
   }, [loadLogs]);
 
   const handleMarkRead = async (entry: DashboardLogEntry) => {
@@ -198,7 +203,12 @@ export const DashboardPage: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
-            <Button variant="outlined" size="small" onClick={loadLogs} disabled={loading}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => loadLogs()}
+              disabled={loading}
+            >
               {loading ? 'Cargando...' : 'Actualizar'}
             </Button>
           </Box>
@@ -217,8 +227,10 @@ export const DashboardPage: React.FC = () => {
             <Typography color="text.secondary">No hay logs para esta fecha o filtros.</Typography>
           ) : (
             <List dense disablePadding>
-              {logs.map((entry) => {
-                const key = `${entry.partitionKey}|${entry.rowKey}`;
+              {logs.map((entry, index) => {
+                const key = entry.partitionKey && entry.rowKey
+                  ? `${entry.partitionKey}|${entry.rowKey}`
+                  : `log-${index}`;
                 const isExpanded = expandedKey === key;
                 const severityColor =
                   entry.severity === 'Error' ? 'error' : entry.severity === 'Warning' ? 'warning' : 'default';
@@ -237,7 +249,7 @@ export const DashboardPage: React.FC = () => {
                       <ListItemText
                         primary={entry.message}
                         secondary={
-                          <Box component="span" sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', mt: 0.5 }}>
+                          <Box component="div" sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', mt: 0.5 }}>
                             <Chip size="small" label={entry.severity || 'Info'} color={severityColor} />
                             {entry.category && <Chip size="small" label={entry.category} variant="outlined" />}
                             {entry.timestamp && (
@@ -248,6 +260,7 @@ export const DashboardPage: React.FC = () => {
                           </Box>
                         }
                         primaryTypographyProps={{ variant: 'body2' }}
+                        secondaryTypographyProps={{ component: 'div' }}
                       />
                       <ListItemSecondaryAction>
                         {!entry.isRead && (

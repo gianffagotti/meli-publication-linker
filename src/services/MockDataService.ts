@@ -155,7 +155,7 @@ export class MockDataService implements IDataService {
         return skus.map(sku => ({ sku: sku.trim(), exists: true }));
     }
 
-    async getDashboardLogs(_date: string, _severity?: string, _category?: string): Promise<import('../models/types').DashboardLogEntry[]> {
+    async getDashboardLogs(_date: string, _severity?: string, _category?: string, _signal?: AbortSignal): Promise<import('../models/types').DashboardLogEntry[]> {
         await this.delay(400);
         return [];
     }

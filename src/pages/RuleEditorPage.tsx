@@ -22,6 +22,7 @@ import {
     Stepper,
     Step,
     StepLabel,
+    CircularProgress,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -464,6 +465,11 @@ export const RuleEditorPage: React.FC = () => {
         }
     };
 
+    /** FULL: true mientras se validan los SKUs en Znube (step Validar SKUs). */
+    const loadingSkuValidation = ruleType === 'FULL' && activeStep === 1
+        && (targetItemDetails?.variations?.length ?? 0) > 0
+        && skuValidationResults === null;
+
     const canSave = React.useMemo(() => {
         const stepsToShow = ruleType === 'FULL' ? STEPS_FULL : STEPS;
         const lastStepIndex = stepsToShow.length - 1;
@@ -657,7 +663,6 @@ export const RuleEditorPage: React.FC = () => {
     const renderFullValidateStep = () => {
         const variations = targetItemDetails?.variations ?? [];
         const missingSkus = skuValidationResults?.filter(r => !r.exists).map(r => r.sku) ?? [];
-        const loadingValidation = ruleType === 'FULL' && activeStep === 1 && variations.length > 0 && skuValidationResults === null;
 
         return (
             <Box>
@@ -665,7 +670,12 @@ export const RuleEditorPage: React.FC = () => {
                 <Typography variant="body2" color="text.secondary" paragraph>
                     Las variantes del artículo objetivo se validan contra el stock en Znube. Si un SKU no existe en Znube, la regla se guardará como incompleta y podrás completarla cuando el SKU esté dado de alta.
                 </Typography>
-                {loadingValidation && <Typography color="text.secondary">Validando SKUs...</Typography>}
+                {loadingSkuValidation && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                        <CircularProgress size={24} />
+                        <Typography color="text.secondary">Validando SKUs en Znube...</Typography>
+                    </Box>
+                )}
                 <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
                     <Table size="small">
                         <TableHead sx={{ bgcolor: '#f5f5f5' }}>
@@ -811,9 +821,9 @@ export const RuleEditorPage: React.FC = () => {
                                     <Button
                                         variant="contained"
                                         onClick={handleSave}
-                                        disabled={loading || !canSave}
+                                        disabled={loading || loadingSkuValidation || !canSave}
                                     >
-                                        {loading ? 'Guardando...' : 'Guardar Regla'}
+                                        {loading ? 'Guardando...' : loadingSkuValidation ? 'Validando SKUs...' : 'Guardar Regla'}
                                     </Button>
                                 ) : (
                                     <Button

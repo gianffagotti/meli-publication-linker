@@ -2,6 +2,24 @@ import axios from 'axios';
 import type { IDataService } from './IDataService';
 import type { MeliItem, StockRule, SkuValidationResult, DashboardLogEntry, DiscoverFullRulesResult } from '../models/types';
 
+/** Normalizes API response (PascalCase or camelCase) to DashboardLogEntry. */
+function normalizeDashboardLogEntry(raw: Record<string, unknown>): DashboardLogEntry {
+    const pk = raw.partitionKey ?? raw.PartitionKey ?? '';
+    const rk = raw.rowKey ?? raw.RowKey ?? '';
+    const entIds = raw.entityIds ?? raw.EntityIds;
+    return {
+        partitionKey: String(pk),
+        rowKey: String(rk),
+        severity: String(raw.severity ?? raw.Severity ?? 'Info'),
+        category: String(raw.category ?? raw.Category ?? ''),
+        message: String(raw.message ?? raw.Message ?? ''),
+        details: String(raw.details ?? raw.Details ?? null),
+        entityIds: Array.isArray(entIds) ? entIds.map(String) : [],
+        isRead: Boolean(raw.isRead ?? raw.IsRead),
+        timestamp: String(raw.timestamp ?? raw.Timestamp ?? null),
+    };
+}
+
 export class ApiDataService implements IDataService {
     async searchItems(query: string): Promise<MeliItem[]> {
         const response = await axios.get(`/api/meli-proxy/search`, { params: { q: query } });
@@ -46,12 +64,13 @@ export class ApiDataService implements IDataService {
         return response.data?.results ?? [];
     }
 
-    async getDashboardLogs(date: string, severity?: string, category?: string): Promise<DashboardLogEntry[]> {
+    async getDashboardLogs(date: string, severity?: string, category?: string, signal?: AbortSignal): Promise<DashboardLogEntry[]> {
         const params: Record<string, string> = { date };
         if (severity) params.severity = severity;
         if (category) params.category = category;
-        const response = await axios.get<DashboardLogEntry[]>(`/api/dashboard/logs`, { params });
-        return Array.isArray(response.data) ? response.data : [];
+        const response = await axios.get<Record<string, unknown>[]>(`/api/dashboard/logs`, { params, signal });
+        const raw = Array.isArray(response.data) ? response.data : [];
+        return raw.map(normalizeDashboardLogEntry);
     }
 
     async markDashboardLogRead(partitionKey: string, rowKey: string): Promise<void> {
