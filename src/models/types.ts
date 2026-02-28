@@ -109,9 +109,40 @@ export interface DashboardLogEntry {
 }
 
 /** Response of POST /api/jobs/discover-full-rules. */
-export interface DiscoverFullRulesResult {
+export interface DiscoverFullRulesStartResult {
+  runId: string;
+  status: string;
+  mode: string;
+  statusUrl: string;
+}
+
+/** Result of a run (status endpoint lastResult). */
+export interface DiscoverFullRulesRunResult {
+  runId?: string | null;
+  mode?: string | null;
+  status: string;
   processed: number;
   created: number;
   incomplete: number;
-  message?: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  message?: string | null;
+}
+
+/** Response of GET /api/jobs/discover-full-rules/status. */
+export interface DiscoverFullRulesStatus {
+  isRunning: boolean;
+  runId?: string | null;
+  mode?: string | null;
+  status?: string | null;
+  startedAt?: string | null;
+  updatedAt?: string | null;
+  lastResult?: DiscoverFullRulesRunResult | null;
+}
+
+/** Response of POST /api/jobs/discover-full-rules/cancel. */
+export interface DiscoverFullRulesCancelResult {
+  cancelled: boolean;
+  runId?: string | null;
+  message?: string | null;
 }

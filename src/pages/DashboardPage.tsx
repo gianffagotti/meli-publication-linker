@@ -18,13 +18,18 @@ import {
   Alert,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import axios from 'axios';
 import { dataService } from '../services/apiFactory';
-import type { DashboardLogEntry } from '../models/types';
+import type { DashboardLogEntry, DiscoverFullRulesStatus } from '../models/types';
 
 const SEVERITIES = ['', 'Info', 'Warning', 'Error'];
 const CATEGORIES = ['', 'FullRuleDiscovery', 'StockSync'];
@@ -39,7 +44,7 @@ function formatDateForApi(d: Date): string {
 function getLast30Days(): { value: string; label: string }[] {
   const items: { value: string; label: string }[] = [];
   const today = new Date();
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 7; i++) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const value = formatDateForApi(d);
@@ -59,8 +64,11 @@ export const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
-  const [discoverRunning, setDiscoverRunning] = useState(false);
-  const [discoverResult, setDiscoverResult] = useState<{ processed: number; created: number; incomplete: number } | null>(null);
+  const [discoverStatus, setDiscoverStatus] = useState<DiscoverFullRulesStatus | null>(null);
+  const [discoverActionLoading, setDiscoverActionLoading] = useState(false);
+  const [discoverMessage, setDiscoverMessage] = useState<{ severity: 'success' | 'warning' | 'error' | 'info'; text: string } | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const loadLogs = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -89,6 +97,31 @@ export const DashboardPage: React.FC = () => {
     return () => ac.abort();
   }, [loadLogs]);
 
+  const loadDiscoverStatus = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const status = await dataService.getDiscoverFullRulesStatus(signal);
+      if (signal?.aborted) return;
+      setDiscoverStatus(status);
+    } catch (err) {
+      if (signal?.aborted) return;
+      setDiscoverStatus(null);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    const ac = new AbortController();
+    loadDiscoverStatus(ac.signal);
+    return () => ac.abort();
+  }, [loadDiscoverStatus]);
+
+  React.useEffect(() => {
+    if (!discoverStatus?.isRunning) return;
+    const interval = setInterval(() => {
+      loadDiscoverStatus();
+    }, 180000);
+    return () => clearInterval(interval);
+  }, [discoverStatus?.isRunning, loadDiscoverStatus]);
+
   const handleMarkRead = async (entry: DashboardLogEntry) => {
     try {
       await dataService.markDashboardLogRead(entry.partitionKey, entry.rowKey);
@@ -105,18 +138,47 @@ export const DashboardPage: React.FC = () => {
   };
 
   const handleDiscoverFullRules = async () => {
-    setDiscoverRunning(true);
-    setDiscoverResult(null);
+    setDiscoverActionLoading(true);
+    setDiscoverMessage(null);
     setError(null);
     try {
-      const result = await dataService.runDiscoverFullRules();
-      setDiscoverResult({ processed: result.processed, created: result.created, incomplete: result.incomplete });
+      await dataService.runDiscoverFullRules();
+      setDiscoverMessage({ severity: 'success', text: 'Job iniciado en background.' });
       setDate(formatDateForApi(new Date()));
+      await loadDiscoverStatus();
       await loadLogs();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al ejecutar descubrimiento.');
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
+        const data = err.response?.data as { message?: string; mode?: string };
+        const modeLabel = data?.mode === 'automatic' ? 'automático' : data?.mode === 'manual' ? 'manual' : 'actual';
+        setDiscoverMessage({ severity: 'warning', text: data?.message ?? `Ya se está ejecutando (${modeLabel}).` });
+        await loadDiscoverStatus();
+        return;
+      }
+      setDiscoverMessage({ severity: 'error', text: err instanceof Error ? err.message : 'Error al ejecutar descubrimiento.' });
     } finally {
-      setDiscoverRunning(false);
+      setDiscoverActionLoading(false);
+      setConfirmOpen(false);
+    }
+  };
+
+  const handleCancelDiscover = async () => {
+    setDiscoverActionLoading(true);
+    setDiscoverMessage(null);
+    try {
+      await dataService.cancelDiscoverFullRules(discoverStatus?.runId ?? undefined);
+      setDiscoverMessage({ severity: 'warning', text: 'Cancelación solicitada. No se hace rollback.' });
+      await loadDiscoverStatus();
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
+        setDiscoverMessage({ severity: 'info', text: 'No hay ejecución activa para cancelar.' });
+        await loadDiscoverStatus();
+        return;
+      }
+      setDiscoverMessage({ severity: 'error', text: err instanceof Error ? err.message : 'Error al cancelar.' });
+    } finally {
+      setDiscoverActionLoading(false);
+      setCancelOpen(false);
     }
   };
 
@@ -139,17 +201,39 @@ export const DashboardPage: React.FC = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Escanea publicaciones Fulfillment en MELI y crea reglas FULL cuando los SKUs existen en Znube.
           </Typography>
+          {discoverStatus?.isRunning && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              {discoverStatus.mode === 'automatic'
+                ? 'El proceso automático de descubrimiento FULL se está ejecutando.'
+                : 'El proceso manual de descubrimiento FULL se está ejecutando.'}
+            </Alert>
+          )}
           <Button
             variant="contained"
-            startIcon={discoverRunning ? <CircularProgress size={20} color="inherit" /> : <AutoAwesomeIcon />}
-            onClick={handleDiscoverFullRules}
-            disabled={discoverRunning}
+            startIcon={discoverActionLoading ? <CircularProgress size={20} color="inherit" /> : <AutoAwesomeIcon />}
+            onClick={() => setConfirmOpen(true)}
+            disabled={discoverActionLoading || Boolean(discoverStatus?.isRunning)}
           >
-            {discoverRunning ? 'Ejecutando...' : 'Descubrir reglas FULL'}
+            {discoverActionLoading ? 'Ejecutando...' : 'Descubrir reglas FULL'}
           </Button>
-          {discoverResult && (
-            <Alert severity="success" sx={{ mt: 2 }}>
-              Procesadas: {discoverResult.processed}, reglas creadas: {discoverResult.created}, incompletas: {discoverResult.incomplete}.
+          <Button
+            variant="outlined"
+            color="warning"
+            sx={{ ml: 2 }}
+            disabled={!discoverStatus?.isRunning || discoverActionLoading}
+            onClick={() => setCancelOpen(true)}
+          >
+            Cancelar
+          </Button>
+          {discoverStatus?.lastResult && !discoverStatus?.isRunning && (
+            <Alert severity={discoverStatus.lastResult.status === 'completed' ? 'success' : 'warning'} sx={{ mt: 2 }}>
+              Último resultado: procesadas {discoverStatus.lastResult.processed}, reglas creadas {discoverStatus.lastResult.created},
+              incompletas {discoverStatus.lastResult.incomplete}. Estado: {discoverStatus.lastResult.status}.
+            </Alert>
+          )}
+          {discoverMessage && (
+            <Alert severity={discoverMessage.severity} sx={{ mt: 2 }} onClose={() => setDiscoverMessage(null)}>
+              {discoverMessage.text}
             </Alert>
           )}
         </CardContent>
@@ -298,6 +382,40 @@ export const DashboardPage: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
+        <DialogTitle>Confirmar descubrimiento FULL</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Este proceso puede tardar varios minutos. Si son pocas reglas, se recomienda editarlas manualmente.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)} disabled={discoverActionLoading}>
+            Cancelar
+          </Button>
+          <Button variant="contained" onClick={handleDiscoverFullRules} disabled={discoverActionLoading}>
+            Ejecutar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={cancelOpen} onClose={() => setCancelOpen(false)}>
+        <DialogTitle>Cancelar descubrimiento FULL</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Al cancelar, no se hace rollback de lo ya actualizado. Siempre podés editar una regla manualmente buscándola.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelOpen(false)} disabled={discoverActionLoading}>
+            Volver
+          </Button>
+          <Button variant="contained" color="warning" onClick={handleCancelDiscover} disabled={discoverActionLoading}>
+            Cancelar proceso
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

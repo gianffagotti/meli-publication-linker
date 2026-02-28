@@ -1,6 +1,14 @@
 import axios from 'axios';
 import type { IDataService } from './IDataService';
-import type { MeliItem, StockRule, SkuValidationResult, DashboardLogEntry, DiscoverFullRulesResult } from '../models/types';
+import type {
+    MeliItem,
+    StockRule,
+    SkuValidationResult,
+    DashboardLogEntry,
+    DiscoverFullRulesStartResult,
+    DiscoverFullRulesStatus,
+    DiscoverFullRulesCancelResult
+} from '../models/types';
 
 /** Normalizes API response (PascalCase or camelCase) to DashboardLogEntry. */
 function normalizeDashboardLogEntry(raw: Record<string, unknown>): DashboardLogEntry {
@@ -17,6 +25,62 @@ function normalizeDashboardLogEntry(raw: Record<string, unknown>): DashboardLogE
         entityIds: Array.isArray(entIds) ? entIds.map(String) : [],
         isRead: Boolean(raw.isRead ?? raw.IsRead),
         timestamp: String(raw.timestamp ?? raw.Timestamp ?? null),
+    };
+}
+
+function normalizeDiscoverStart(raw: Record<string, unknown>): DiscoverFullRulesStartResult {
+    return {
+        runId: String(raw.runId ?? raw.RunId ?? ''),
+        status: String(raw.status ?? raw.Status ?? 'running'),
+        mode: String(raw.mode ?? raw.Mode ?? 'manual'),
+        statusUrl: String(raw.statusUrl ?? raw.StatusUrl ?? '/api/jobs/discover-full-rules/status'),
+    };
+}
+
+function normalizeDiscoverResult(raw: Record<string, unknown>): {
+    runId?: string | null;
+    mode?: string | null;
+    status: string;
+    processed: number;
+    created: number;
+    incomplete: number;
+    startedAt?: string | null;
+    completedAt?: string | null;
+    message?: string | null;
+} {
+    return {
+        runId: (raw.runId ?? raw.RunId ?? null) as string | null,
+        mode: (raw.mode ?? raw.Mode ?? null) as string | null,
+        status: String(raw.status ?? raw.Status ?? ''),
+        processed: Number(raw.processed ?? raw.Processed ?? 0),
+        created: Number(raw.created ?? raw.Created ?? 0),
+        incomplete: Number(raw.incomplete ?? raw.Incomplete ?? 0),
+        startedAt: (raw.startedAt ?? raw.StartedAt ?? null) as string | null,
+        completedAt: (raw.completedAt ?? raw.CompletedAt ?? null) as string | null,
+        message: (raw.message ?? raw.Message ?? null) as string | null,
+    };
+}
+
+function normalizeDiscoverStatus(raw: Record<string, unknown>): DiscoverFullRulesStatus {
+    const last = raw.lastResult ?? raw.LastResult;
+    return {
+        isRunning: Boolean(raw.isRunning ?? raw.IsRunning),
+        runId: (raw.runId ?? raw.RunId ?? null) as string | null,
+        mode: (raw.mode ?? raw.Mode ?? null) as string | null,
+        status: (raw.status ?? raw.Status ?? null) as string | null,
+        startedAt: (raw.startedAt ?? raw.StartedAt ?? null) as string | null,
+        updatedAt: (raw.updatedAt ?? raw.UpdatedAt ?? null) as string | null,
+        lastResult: last && typeof last === 'object'
+            ? normalizeDiscoverResult(last as Record<string, unknown>)
+            : null,
+    };
+}
+
+function normalizeDiscoverCancel(raw: Record<string, unknown>): DiscoverFullRulesCancelResult {
+    return {
+        cancelled: Boolean(raw.cancelled ?? raw.Cancelled),
+        runId: (raw.runId ?? raw.RunId ?? null) as string | null,
+        message: (raw.message ?? raw.Message ?? null) as string | null,
     };
 }
 
@@ -79,8 +143,20 @@ export class ApiDataService implements IDataService {
         );
     }
 
-    async runDiscoverFullRules(): Promise<DiscoverFullRulesResult> {
-        const response = await axios.post<DiscoverFullRulesResult>(`/api/jobs/discover-full-rules`);
-        return response.data;
+    async runDiscoverFullRules(): Promise<DiscoverFullRulesStartResult> {
+        const response = await axios.post<Record<string, unknown>>(`/api/jobs/discover-full-rules`);
+        return normalizeDiscoverStart(response.data ?? {});
+    }
+
+    async getDiscoverFullRulesStatus(signal?: AbortSignal): Promise<DiscoverFullRulesStatus> {
+        const response = await axios.get<Record<string, unknown>>(`/api/jobs/discover-full-rules/status`, { signal });
+        return normalizeDiscoverStatus(response.data ?? {});
+    }
+
+    async cancelDiscoverFullRules(runId?: string): Promise<DiscoverFullRulesCancelResult> {
+        const params: Record<string, string> = {};
+        if (runId) params.runId = runId;
+        const response = await axios.post<Record<string, unknown>>(`/api/jobs/discover-full-rules/cancel`, null, { params });
+        return normalizeDiscoverCancel(response.data ?? {});
     }
 }

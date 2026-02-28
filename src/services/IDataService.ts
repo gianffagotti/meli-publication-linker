@@ -1,4 +1,12 @@
-import type { MeliItem, StockRule, SkuValidationResult, DashboardLogEntry, DiscoverFullRulesResult } from '../models/types';
+import type {
+    MeliItem,
+    StockRule,
+    SkuValidationResult,
+    DashboardLogEntry,
+    DiscoverFullRulesStartResult,
+    DiscoverFullRulesStatus,
+    DiscoverFullRulesCancelResult
+} from '../models/types';
 
 export interface IDataService {
     searchItems(query: string): Promise<MeliItem[]>;
@@ -14,5 +22,9 @@ export interface IDataService {
     /** Mark a log entry as read. */
     markDashboardLogRead(partitionKey: string, rowKey: string): Promise<void>;
     /** Run Full Rule Discovery job. */
-    runDiscoverFullRules(): Promise<DiscoverFullRulesResult>;
+    runDiscoverFullRules(): Promise<DiscoverFullRulesStartResult>;
+    /** Status of Full Rule Discovery job. */
+    getDiscoverFullRulesStatus(signal?: AbortSignal): Promise<DiscoverFullRulesStatus>;
+    /** Cancel a running Full Rule Discovery job. */
+    cancelDiscoverFullRules(runId?: string): Promise<DiscoverFullRulesCancelResult>;
 }

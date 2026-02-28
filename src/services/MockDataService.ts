@@ -1,5 +1,12 @@
 import type { IDataService } from './IDataService';
-import type { MeliItem, StockRule } from '../models/types';
+import type {
+    MeliItem,
+    StockRule,
+    DiscoverFullRulesStartResult,
+    DiscoverFullRulesStatus,
+    DiscoverFullRulesRunResult,
+    DiscoverFullRulesCancelResult
+} from '../models/types';
 import mockItems from '../mocks/mockItems.json';
 
 // Initialize in-memory data from JSON files
@@ -91,6 +98,9 @@ const MOCK_RULES: StockRule[] = [
 ];
 
 export class MockDataService implements IDataService {
+    private discoverRunning = false;
+    private discoverRunId: string | null = null;
+    private discoverLastResult: DiscoverFullRulesRunResult | null = null;
     private delay(ms: number) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
@@ -164,8 +174,46 @@ export class MockDataService implements IDataService {
         await this.delay(200);
     }
 
-    async runDiscoverFullRules(): Promise<import('../models/types').DiscoverFullRulesResult> {
-        await this.delay(1500);
-        return { processed: 0, created: 0, incomplete: 0, message: 'Discovery completed (mock).' };
+    async runDiscoverFullRules(): Promise<DiscoverFullRulesStartResult> {
+        await this.delay(500);
+        this.discoverRunning = true;
+        this.discoverRunId = `mock-${Date.now()}`;
+        this.discoverLastResult = null;
+        return {
+            runId: this.discoverRunId,
+            status: 'running',
+            mode: 'manual',
+            statusUrl: '/api/jobs/discover-full-rules/status'
+        };
+    }
+
+    async getDiscoverFullRulesStatus(): Promise<DiscoverFullRulesStatus> {
+        await this.delay(200);
+        return {
+            isRunning: this.discoverRunning,
+            runId: this.discoverRunId,
+            mode: this.discoverRunId ? 'manual' : null,
+            status: this.discoverRunning ? 'running' : this.discoverLastResult?.status ?? null,
+            lastResult: this.discoverLastResult
+        };
+    }
+
+    async cancelDiscoverFullRules(): Promise<DiscoverFullRulesCancelResult> {
+        await this.delay(200);
+        if (!this.discoverRunning) {
+            return { cancelled: false, runId: this.discoverRunId, message: 'No hay ejecución activa.' };
+        }
+        this.discoverRunning = false;
+        this.discoverLastResult = {
+            runId: this.discoverRunId,
+            mode: 'manual',
+            status: 'cancelled',
+            processed: 0,
+            created: 0,
+            incomplete: 0,
+            completedAt: new Date().toISOString(),
+            message: 'Cancelado (mock).'
+        };
+        return { cancelled: true, runId: this.discoverRunId, message: 'Cancelación solicitada.' };
     }
 }
