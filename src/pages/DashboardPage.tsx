@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -22,6 +22,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  FormControlLabel,
+  Switch,
+  Pagination,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -32,7 +35,7 @@ import { dataService } from '../services/apiFactory';
 import type { DashboardLogEntry, DiscoverFullRulesStatus } from '../models/types';
 
 const SEVERITIES = ['', 'Info', 'Warning', 'Error'];
-const CATEGORIES = ['', 'FullRuleDiscovery', 'StockSync'];
+const CATEGORIES = ['', 'FullRuleDiscovery', 'StockSync', 'StockSyncWebhook'];
 
 function formatDateForApi(d: Date): string {
   const y = d.getFullYear();
@@ -41,7 +44,7 @@ function formatDateForApi(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function getLast30Days(): { value: string; label: string }[] {
+function getLast7Days(): { value: string; label: string }[] {
   const items: { value: string; label: string }[] = [];
   const today = new Date();
   for (let i = 0; i < 7; i++) {
@@ -54,7 +57,8 @@ function getLast30Days(): { value: string; label: string }[] {
   return items;
 }
 
-const DATE_OPTIONS = getLast30Days();
+const DATE_OPTIONS = getLast7Days();
+const LOGS_PAGE_SIZE = 10;
 
 export const DashboardPage: React.FC = () => {
   const [date, setDate] = useState<string>(() => formatDateForApi(new Date()));
@@ -64,6 +68,9 @@ export const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [logsPage, setLogsPage] = useState(1);
+  const [markAllLoading, setMarkAllLoading] = useState(false);
   const [discoverStatus, setDiscoverStatus] = useState<DiscoverFullRulesStatus | null>(null);
   const [discoverActionLoading, setDiscoverActionLoading] = useState(false);
   const [discoverMessage, setDiscoverMessage] = useState<{ severity: 'success' | 'warning' | 'error' | 'info'; text: string } | null>(null);
@@ -96,6 +103,10 @@ export const DashboardPage: React.FC = () => {
     loadLogs(ac.signal);
     return () => ac.abort();
   }, [loadLogs]);
+
+  React.useEffect(() => {
+    setLogsPage(1);
+  }, [date, severity, category, showUnreadOnly, logs.length]);
 
   const loadDiscoverStatus = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -134,6 +145,41 @@ export const DashboardPage: React.FC = () => {
       );
     } catch {
       // ignore
+    }
+  };
+
+  const filteredLogs = useMemo(() => {
+    return showUnreadOnly ? logs.filter((entry) => !entry.isRead) : logs;
+  }, [logs, showUnreadOnly]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / LOGS_PAGE_SIZE));
+  const safePage = Math.min(logsPage, totalPages);
+  const pagedLogs = useMemo(() => {
+    const start = (safePage - 1) * LOGS_PAGE_SIZE;
+    return filteredLogs.slice(start, start + LOGS_PAGE_SIZE);
+  }, [filteredLogs, safePage]);
+
+  const visibleUnread = pagedLogs.filter((entry) => !entry.isRead);
+
+  const handleMarkVisibleRead = async () => {
+    if (visibleUnread.length === 0) return;
+    setMarkAllLoading(true);
+    try {
+      await Promise.allSettled(
+        visibleUnread
+          .filter((entry) => entry.partitionKey && entry.rowKey)
+          .map((entry) => dataService.markDashboardLogRead(entry.partitionKey, entry.rowKey))
+      );
+      setLogs((prev) =>
+        prev.map((entry) => {
+          const match = visibleUnread.find(
+            (candidate) => candidate.partitionKey === entry.partitionKey && candidate.rowKey === entry.rowKey
+          );
+          return match ? { ...entry, isRead: true } : entry;
+        })
+      );
+    } finally {
+      setMarkAllLoading(false);
     }
   };
 
@@ -287,6 +333,17 @@ export const DashboardPage: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
+            <FormControlLabel
+              sx={{ ml: 1 }}
+              control={
+                <Switch
+                  checked={showUnreadOnly}
+                  onChange={(e) => setShowUnreadOnly(e.target.checked)}
+                  size="small"
+                />
+              }
+              label="Solo no leídos"
+            />
             <Button
               variant="outlined"
               size="small"
@@ -294,6 +351,14 @@ export const DashboardPage: React.FC = () => {
               disabled={loading}
             >
               {loading ? 'Cargando...' : 'Actualizar'}
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleMarkVisibleRead}
+              disabled={markAllLoading || visibleUnread.length === 0}
+            >
+              {markAllLoading ? 'Marcando...' : 'Marcar visibles como leídos'}
             </Button>
           </Box>
 
@@ -307,11 +372,11 @@ export const DashboardPage: React.FC = () => {
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
               <CircularProgress />
             </Box>
-          ) : logs.length === 0 ? (
+          ) : filteredLogs.length === 0 ? (
             <Typography color="text.secondary">No hay logs para esta fecha o filtros.</Typography>
           ) : (
             <List dense disablePadding>
-              {logs.map((entry, index) => {
+              {pagedLogs.map((entry, index) => {
                 const key = entry.partitionKey && entry.rowKey
                   ? `${entry.partitionKey}|${entry.rowKey}`
                   : `log-${index}`;
@@ -379,6 +444,17 @@ export const DashboardPage: React.FC = () => {
                 );
               })}
             </List>
+          )}
+          {filteredLogs.length > LOGS_PAGE_SIZE && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Pagination
+                count={totalPages}
+                page={safePage}
+                onChange={(_, page) => setLogsPage(page)}
+                color="primary"
+                size="small"
+              />
+            </Box>
           )}
         </CardContent>
       </Card>
