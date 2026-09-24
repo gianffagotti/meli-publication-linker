@@ -8,6 +8,20 @@ export interface MeliShipping {
   logistic_type?: string;
 }
 
+/**
+ * Relates a catalog listing back to its originating marketplace item and variation.
+ * Populated for catalog listings created via optin from a traditional marketplace item.
+ * Empty for auto-optin (catalog_boost) items. Spec: frontend-catalog-types.
+ */
+export interface MeliItemRelation {
+  /** ID of the original marketplace item (e.g. "MLA123456"). */
+  id: string;
+  /** Numeric ID of the source variation. null when the original item had no variations. */
+  variation_id?: number | null;
+  /** Stock relation factor (typically 1). */
+  stock_relation?: number;
+}
+
 export interface MeliItem {
   id: string;
   variations: MeliVariation[];
@@ -17,6 +31,13 @@ export interface MeliItem {
   shipping?: MeliShipping;
   /** Convenience: fulfillment | self_service. Use shipping.logistic_type when available. */
   logisticsType?: string;
+  // --- Catalog / Family fields (MCP-documented). Spec: frontend-catalog-types ---
+  /** true when this publication is a catalog listing (MELI Families model). */
+  catalog_listing?: boolean;
+  /** Shared catalog product ID identifying the item's family (e.g. "MLA6005934"). null for Legacy items. */
+  catalog_product_id?: string | null;
+  /** Relations to the original marketplace item and variation. Empty for auto-optin catalog items. */
+  item_relations?: MeliItemRelation[];
 }
 
 export type RuleType = 'FULL' | 'PACK' | 'COMBO';

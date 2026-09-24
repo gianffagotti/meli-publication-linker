@@ -629,6 +629,11 @@ export const RuleEditorPage: React.FC = () => {
                                         ⚠️ Publicación FULL. Solo se actualizará el stock de tu depósito local (Seller Address).
                                     </Alert>
                                 )}
+                                {targetItem.catalog_listing === true && (!targetItem.variations?.length) && (
+                                    <Alert severity="info" sx={{ mt: 2 }}>
+                                        🗂️ Publicación de Catálogo (Familias). Las variantes se resolverán automáticamente desde los ítems hermanos en el backend. Podés continuar normalmente.
+                                    </Alert>
+                                )}
                                 <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
                                     <CardMedia
                                         component="img"
