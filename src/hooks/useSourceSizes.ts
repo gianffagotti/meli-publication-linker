@@ -1,15 +1,17 @@
 import { useMemo } from 'react';
 import type { MeliItem } from '../models/types';
+import { normalizeSkuToken } from '../utils/skuToken';
 
 /**
- * Parses size from a SKU: split by '#' and take the last segment (trimmed).
+ * Parses size from a SKU: split by '#' and take the last segment.
+ * The segment is trim().toUpperCase() so it matches matchSize from auto-mapping.
  * Returns null if sku is missing, empty, or has no '#' (no size detectable).
  */
 export function parseSizeFromSku(sku: string | null | undefined): string | null {
   if (sku == null || sku === '') return null;
   const idx = sku.lastIndexOf('#');
   if (idx < 0) return null;
-  const segment = sku.slice(idx + 1).trim();
+  const segment = normalizeSkuToken(sku.slice(idx + 1));
   return segment === '' ? null : segment;
 }
 

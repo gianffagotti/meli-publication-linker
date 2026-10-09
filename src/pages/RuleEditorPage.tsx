@@ -32,6 +32,7 @@ import { RuleComponentsStep, type RuleComponentWithItem } from '../components/Ru
 import { dataService } from '../services/apiFactory';
 import type { MeliItem, StockRule, RuleType, RuleComponent, VariantMapping, RuleSourceMatchPayload, MappingStrategy, SkuValidationResult } from '../models/types';
 import { useSourceSizes } from '../hooks/useSourceSizes';
+import { buildInitialMappings } from './buildInitialMappings';
 
 const STEPS = ['Seleccionar Objetivo', 'Definir Componentes', 'Mapear Variantes'];
 /** FULL: omit Paso 2 (componentes). Step 2 = Validar SKUs contra Znube. */
@@ -147,7 +148,7 @@ export const RuleEditorPage: React.FC = () => {
             targetItemDetails?.variations?.length &&
             components.length > 0
         ) {
-            const newMappings = buildInitialMappings(targetItemDetails, components);
+            const newMappings = buildInitialMappings(ruleType, targetItemDetails, components);
             if (newMappings.length > 0) setMappings(newMappings);
         }
     }, [activeStep, ruleType, mappings.length, targetItemDetails, components]);
@@ -277,116 +278,6 @@ export const RuleEditorPage: React.FC = () => {
         setMappings(newMappings);
     };
 
-    const getSkuSegments = (sku: string): string[] =>
-        sku
-            .split('#')
-            .map((part) => part.trim())
-            .filter((part) => part.length > 0);
-
-    const getSkuColorSizeSuffix = (sku: string): { suffix: string; size: string } | null => {
-        const segments = getSkuSegments(sku);
-        if (segments.length < 2) return null;
-        const size = segments[segments.length - 1];
-        const color = segments[segments.length - 2];
-        return { suffix: `${color}#${size}`.toLowerCase(), size };
-    };
-
-    /** Build initial mappings by SKU when entering Step 3. */
-    const buildInitialMappings = (details: MeliItem, comps: RuleComponentWithItem[]): VariantMapping[] => {
-        const newMappings: VariantMapping[] = [];
-        if (!details.variations?.length) return newMappings;
-        details.variations.forEach((targetVar) => {
-            const targetVariantId = targetVar.user_product_id.toString();
-            const targetSku = targetVar.sku || '';
-
-            if (ruleType === 'PACK') {
-                const comp = comps[0];
-                const targetSuffix = targetSku ? getSkuColorSizeSuffix(targetSku) : null;
-                const sourceVariants = comp?.sourceItem.variations ?? [];
-                const matches = targetSuffix
-                    ? sourceVariants.filter((sv) => {
-                        if (!sv.sku) return false;
-                        const sourceSuffix = getSkuColorSizeSuffix(sv.sku);
-                        return sourceSuffix?.suffix === targetSuffix.suffix;
-                    })
-                    : [];
-
-                if (matches.length === 1 && comp) {
-                    const match = matches[0];
-                    newMappings.push({
-                        targetVariantId,
-                        targetSku,
-                        strategy: 'EXPLICIT',
-                        sourceMatches: [{
-                            sourceItemId: comp.sourceItem.id,
-                            sourceVariantId: match.user_product_id.toString(),
-                            sourceSku: match.sku || '',
-                            quantity: comp.quantity,
-                        }],
-                    });
-                    return;
-                }
-
-                // Fallback: si no matcheó por SKU (COLOR#TALLE), intentar por descripción
-                if (matches.length === 0 && targetVar.description?.trim()) {
-                    const targetDesc = targetVar.description.trim().toLowerCase();
-                    const descMatches = sourceVariants.filter((sv) => {
-                        const srcDesc = (sv.description ?? '').trim().toLowerCase();
-                        return srcDesc && srcDesc === targetDesc;
-                    });
-                    if (descMatches.length === 1 && comp) {
-                        const match = descMatches[0];
-                        newMappings.push({
-                            targetVariantId,
-                            targetSku,
-                            strategy: 'EXPLICIT',
-                            sourceMatches: [{
-                                sourceItemId: comp.sourceItem.id,
-                                sourceVariantId: match.user_product_id.toString(),
-                                sourceSku: match.sku || '',
-                                quantity: comp.quantity,
-                            }],
-                        });
-                        return;
-                    }
-                }
-
-                if (matches.length === 0 && targetSuffix?.size) {
-                    newMappings.push({
-                        targetVariantId,
-                        targetSku,
-                        strategy: 'DYNAMIC_SIZE',
-                        matchSize: targetSuffix.size,
-                        sourceMatches: [],
-                    });
-                    return;
-                }
-            }
-
-            const sourceMatches: VariantMapping['sourceMatches'] = [];
-            comps.forEach((comp) => {
-                const match = comp.sourceItem.variations?.find(
-                    (sv) => sv.sku && targetVar.sku && sv.sku.toLowerCase() === targetVar.sku.toLowerCase()
-                );
-                if (match) {
-                    sourceMatches.push({
-                        sourceItemId: comp.sourceItem.id,
-                        sourceVariantId: match.user_product_id.toString(),
-                        sourceSku: match.sku || '',
-                        quantity: comp.quantity,
-                    });
-                }
-            });
-            newMappings.push({
-                targetVariantId,
-                targetSku,
-                strategy: 'EXPLICIT',
-                sourceMatches,
-            });
-        });
-        return newMappings;
-    };
-
     // --- Navigation Handlers ---
     const handleNext = async () => {
         if (activeStep === 0) {
@@ -408,7 +299,7 @@ export const RuleEditorPage: React.FC = () => {
                 setTargetItemDetails(details);
 
                 if (mappings.length === 0 && details) {
-                    const newMappings = buildInitialMappings(details, components);
+                    const newMappings = buildInitialMappings(ruleType, details, components);
                     if (newMappings.length > 0) setMappings(newMappings);
                 }
             } catch (err) {
