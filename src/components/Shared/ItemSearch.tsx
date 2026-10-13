@@ -3,6 +3,7 @@ import { Autocomplete, TextField, CircularProgress, Box, Avatar } from '@mui/mat
 import { debounce } from '@mui/material/utils';
 import { dataService } from '../../services/apiFactory';
 import type { MeliItem } from '../../models/types';
+import { itemSearchMetaLine, itemSearchName, itemSearchSecondaryTitle } from './itemSearchDisplay';
 
 interface ItemSearchProps {
     label: string;
@@ -39,7 +40,7 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
         }
 
         // Skip search when input was filled by selecting an option (avoids double search)
-        if (value && inputValue === (value.title || '')) {
+        if (value && inputValue === itemSearchName(value)) {
             setLoading(false);
             return undefined;
         }
@@ -67,7 +68,7 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
     // Sync input to selected value when an item is chosen (keeps controlled Autocomplete consistent)
     useEffect(() => {
         if (value != null) {
-            setInputValue(value.title || '');
+            setInputValue(itemSearchName(value));
         }
     }, [value]);
 
@@ -88,7 +89,7 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
                 setOpen(false);
             }}
             isOptionEqualToValue={(option, val) => option.id === val.id}
-            getOptionLabel={(option) => `${option.title || ''}`}
+            getOptionLabel={(option) => itemSearchName(option)}
             filterOptions={(x) => x}
             options={options}
             loading={loading}
@@ -98,17 +99,30 @@ export const ItemSearch: React.FC<ItemSearchProps> = ({ label, onSelect }) => {
             }}
             renderOption={(props, option) => {
                 const { key, ...otherProps } = props;
+                const name = itemSearchName(option) || 'Sin Título';
+                const secondary = itemSearchSecondaryTitle(option);
+                const meta = itemSearchMetaLine(option);
                 return (
                     <li key={key} {...otherProps}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
                             <Avatar
                                 src={option.thumbnail || ''}
-                                alt={option.title || ''}
+                                alt={name}
                                 variant="square"
                                 sx={{ width: 44, height: 44, flexShrink: 0 }}
                             />
-                            <Box component="span" sx={{ flex: 1, minWidth: 0, wordWrap: 'break-word', fontWeight: 'bold' }}>
-                                {option.title || 'Sin Título'}
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Box component="span" sx={{ display: 'block', wordWrap: 'break-word', fontWeight: 'bold' }}>
+                                    {name}
+                                </Box>
+                                {secondary && (
+                                    <Box component="span" sx={{ display: 'block', wordWrap: 'break-word' }}>
+                                        {secondary}
+                                    </Box>
+                                )}
+                                <Box component="span" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.85rem' }}>
+                                    {meta}
+                                </Box>
                             </Box>
                         </Box>
                     </li>

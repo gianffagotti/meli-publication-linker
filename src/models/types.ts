@@ -31,6 +31,14 @@ export interface MeliItem {
   shipping?: MeliShipping;
   /** Convenience: fulfillment | self_service. Use shipping.logistic_type when available. */
   logisticsType?: string;
+  /** User Products family id. String when the API preserves values above Number.MAX_SAFE_INTEGER. */
+  family_id?: string | number | null;
+  /** Shared family name across sibling publications. */
+  family_name?: string | null;
+  /** User Product id (MLAU…). */
+  user_product_id?: string | null;
+  /** Root seller SKU of this publication. */
+  seller_sku?: string | null;
   // --- Catalog / Family fields (MCP-documented). Spec: frontend-catalog-types ---
   /** true when this publication is a catalog listing (MELI Families model). */
   catalog_listing?: boolean;
