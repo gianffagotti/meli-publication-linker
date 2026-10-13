@@ -16,6 +16,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import type { MeliVariation, VariantMapping, RuleType, MappingStrategy } from '../../models/types';
 import type { RuleComponentWithItem } from './RuleComponentsStep';
+import { variantIdentity } from '../../pages/ruleSaveIdentity';
 
 export interface SourceOption {
     sourceItemId: string;
@@ -153,10 +154,11 @@ export const RuleVariantRow: React.FC<RuleVariantRowProps> = ({
                     <Stack spacing={1.5} sx={{ py: 0.5 }}>
                         {componentsForCombo.map((comp) => {
                             const variations = comp.sourceItem.variations ?? [];
-                            const selectedMatch = sourceMatches.find((m) => m.sourceItemId === comp.sourceItem.id);
+                            const publicationId = comp.persistedSourceItemId ?? comp.sourceItem.id;
+                            const selectedMatch = sourceMatches.find((m) => m.sourceItemId === publicationId || m.sourceItemId === comp.sourceItem.id);
                             const selectedVariantId = selectedMatch?.sourceVariantId ?? '';
                             const options = variations.map((v) => ({
-                                value: v.user_product_id.toString(),
+                                value: variantIdentity(v, comp.sourceItem.family_id),
                                 label: v.sku ? `${v.sku} – ${v.description ?? ''}`.trim() || v.sku : (v.description ?? v.user_product_id),
                             }));
                             return (
@@ -173,7 +175,7 @@ export const RuleVariantRow: React.FC<RuleVariantRowProps> = ({
                                             value={selectedVariantId}
                                             label="Variante"
                                             onChange={(e) =>
-                                                onComboVariantSelect?.(targetVarId, comp.sourceItem.id, e.target.value)
+                                                onComboVariantSelect?.(targetVarId, publicationId, e.target.value)
                                             }
                                         >
                                             <MenuItem value="">

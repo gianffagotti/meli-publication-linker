@@ -21,6 +21,8 @@ import type { MeliItem, RuleType } from '../../models/types';
 export interface RuleComponentWithItem {
     sourceItem: MeliItem;
     quantity: number;
+    /** Set when editing a saved rule so a reloaded family container does not replace the stored key. */
+    persistedSourceItemId?: string;
 }
 
 interface RuleComponentsStepProps {

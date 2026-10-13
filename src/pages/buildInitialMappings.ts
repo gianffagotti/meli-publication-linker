@@ -1,4 +1,5 @@
 import type { MeliItem, MeliVariation, RuleType, VariantMapping } from '../models/types';
+import { variantIdentity } from './ruleSaveIdentity';
 import type { RuleComponentWithItem } from '../components/Rules/RuleComponentsStep';
 import { normalizeSkuToken } from '../utils/skuToken';
 
@@ -29,8 +30,8 @@ function toExplicitMapping(
         targetSku,
         strategy: 'EXPLICIT',
         sourceMatches: matches.map((match) => ({
-            sourceItemId: comp.sourceItem.id,
-            sourceVariantId: match.user_product_id.toString(),
+            sourceItemId: comp.persistedSourceItemId ?? comp.sourceItem.id,
+            sourceVariantId: variantIdentity(match, comp.sourceItem.family_id),
             sourceSku: match.sku || '',
             quantity: comp.quantity,
         })),
@@ -46,7 +47,7 @@ export function buildInitialMappings(
     const newMappings: VariantMapping[] = [];
     if (!details.variations?.length) return newMappings;
     details.variations.forEach((targetVar) => {
-        const targetVariantId = targetVar.user_product_id.toString();
+        const targetVariantId = variantIdentity(targetVar, details.family_id);
         const targetSku = targetVar.sku || '';
 
         if (ruleType === 'PACK') {
@@ -98,8 +99,8 @@ export function buildInitialMappings(
             );
             if (match) {
                 sourceMatches.push({
-                    sourceItemId: comp.sourceItem.id,
-                    sourceVariantId: match.user_product_id.toString(),
+                    sourceItemId: comp.persistedSourceItemId ?? comp.sourceItem.id,
+                    sourceVariantId: variantIdentity(match, comp.sourceItem.family_id),
                     sourceSku: match.sku || '',
                     quantity: comp.quantity,
                 });

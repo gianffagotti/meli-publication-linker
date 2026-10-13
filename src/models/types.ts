@@ -1,5 +1,7 @@
 export interface MeliVariation {
   user_product_id: string;
+  /** Numeric MLA id of a family sibling. Present on proxy variations. */
+  id?: number;
   sku?: string;
   description?: string;
 }

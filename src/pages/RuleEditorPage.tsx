@@ -33,6 +33,7 @@ import { dataService } from '../services/apiFactory';
 import type { MeliItem, StockRule, RuleType, RuleComponent, VariantMapping, RuleSourceMatchPayload, MappingStrategy, SkuValidationResult } from '../models/types';
 import { useSourceSizes } from '../hooks/useSourceSizes';
 import { buildInitialMappings } from './buildInitialMappings';
+import { resolveSourceItemId, savedTargetItemId, variantIdentity } from './ruleSaveIdentity';
 
 const STEPS = ['Seleccionar Objetivo', 'Definir Componentes', 'Mapear Variantes'];
 /** FULL: omit Paso 2 (componentes). Step 2 = Validar SKUs contra Znube. */
@@ -50,6 +51,8 @@ export const RuleEditorPage: React.FC = () => {
     // --- State: Step 1 (Target) ---
     const [ruleType, setRuleType] = useState<RuleType>('PACK');
     const [targetItem, setTargetItem] = useState<MeliItem | null>(null);
+    /** Original target key while editing. Cleared when the user picks another publication. */
+    const [lockedTargetItemId, setLockedTargetItemId] = useState<string | null>(null);
 
     // --- State: Step 2 (Components: Source publications + quantity per row) ---
     const [components, setComponents] = useState<RuleComponentWithItem[]>([]);
@@ -81,12 +84,15 @@ export const RuleEditorPage: React.FC = () => {
 
                 // 2. Hydrate Target Item
                 const targetDetails = await dataService.getItemDetails(rule.targetItemId);
+                setLockedTargetItemId(rule.targetItemId);
 
                 // 3. Hydrate Source Items (Parallel) and build components with full items
-                const sourceDetailsPromises = rule.components.map(async (c) => {
+                const sourceDetailsPromises = rule.components.map(async (c): Promise<RuleComponentWithItem | null> => {
                     try {
                         const item = await dataService.getItemDetails(c.sourceItemId);
-                        return item ? { sourceItem: item, quantity: c.quantity } : null;
+                        return item
+                            ? { sourceItem: item, quantity: c.quantity, persistedSourceItemId: c.sourceItemId }
+                            : null;
                     } catch (e) {
                         console.error(`Error fetching source item ${c.sourceItemId}`, e);
                         return null;
@@ -155,6 +161,7 @@ export const RuleEditorPage: React.FC = () => {
 
     // --- Handlers: Step 1 ---
     const handleTargetSelect = (item: MeliItem | null) => {
+        setLockedTargetItemId(null);
         setTargetItem(item);
         setComponents([]);
         setMappings([]);
@@ -195,15 +202,15 @@ export const RuleEditorPage: React.FC = () => {
         const sourceItem = components[0]?.sourceItem;
         if (!sourceItem?.variations?.length) return [];
         return sourceItem.variations.map((v) => ({
-            sourceItemId: sourceItem.id,
-            sourceVariantId: v.user_product_id.toString(),
+            sourceItemId: components[0]?.persistedSourceItemId ?? sourceItem.id,
+            sourceVariantId: variantIdentity(v, sourceItem.family_id),
             sourceSku: v.sku || '',
             label: `${v.sku || 'Sin SKU'} – ${v.description || sourceItem.title || sourceItem.id}`,
         }));
     };
 
     const handlePackSingleSelect = (targetVarId: string, option: SourceOption | null) => {
-        const targetVar = targetItemDetails?.variations.find((v) => v.user_product_id.toString() === targetVarId);
+        const targetVar = targetItemDetails?.variations.find((v) => variantIdentity(v, targetItemDetails.family_id) === targetVarId);
         if (!targetVar) return;
         const quantity = components[0]?.quantity ?? 1;
         const sourceMatches = option
@@ -218,14 +225,14 @@ export const RuleEditorPage: React.FC = () => {
     };
 
     const handleComboVariantSelect = (targetVarId: string, sourceItemId: string, sourceVariantId: string) => {
-        const comp = components.find((c) => c.sourceItem.id === sourceItemId);
+        const comp = components.find((c) => (c.persistedSourceItemId ?? c.sourceItem.id) === sourceItemId);
         const sourceItem = comp?.sourceItem;
-        const variation = sourceItem?.variations?.find((v) => v.user_product_id.toString() === sourceVariantId);
+        const variation = sourceItem?.variations?.find((v) => variantIdentity(v, sourceItem.family_id) === sourceVariantId);
         const sourceSku = variation?.sku ?? '';
         const quantity = comp?.quantity ?? 1;
         setMappings((prev) => {
             const idx = prev.findIndex((m) => m.targetVariantId === targetVarId);
-            const targetVar = targetItemDetails?.variations.find((v) => v.user_product_id.toString() === targetVarId);
+            const targetVar = targetItemDetails?.variations.find((v) => variantIdentity(v, targetItemDetails.family_id) === targetVarId);
             const base = idx >= 0 ? prev[idx] : { targetVariantId: targetVarId, targetSku: targetVar?.sku ?? '', strategy: 'EXPLICIT' as const, sourceMatches: [] as VariantMapping['sourceMatches'] };
             const otherMatches = base.sourceMatches.filter((m) => m.sourceItemId !== sourceItemId);
             const newMatches = [...otherMatches, { sourceItemId, sourceVariantId, sourceSku, quantity }];
@@ -238,7 +245,7 @@ export const RuleEditorPage: React.FC = () => {
     const handleStrategyChange = (targetVarId: string, newStrategy: MappingStrategy) => {
         setMappings(prev => {
             const idx = prev.findIndex(m => m.targetVariantId === targetVarId);
-            const targetSku = targetItemDetails?.variations?.find(v => v.user_product_id.toString() === targetVarId)?.sku ?? '';
+            const targetSku = targetItemDetails?.variations?.find(v => variantIdentity(v, targetItemDetails?.family_id) === targetVarId)?.sku ?? '';
             if (idx === -1) {
                 const newMapping: VariantMapping = {
                     targetVariantId: targetVarId,
@@ -341,6 +348,7 @@ export const RuleEditorPage: React.FC = () => {
         setLoading(true);
         try {
             await dataService.deleteStockRule(targetItemId);
+            setLockedTargetItemId(null);
             setTargetItem(null);
             setComponents([]);
             setMappings([]);
@@ -371,7 +379,7 @@ export const RuleEditorPage: React.FC = () => {
         }
         if (ruleType === 'PACK' || ruleType === 'COMBO') {
             if (!targetItem || components.length === 0) return false;
-            const targetVariantIds = (targetItemDetails?.variations ?? []).map((v) => v.user_product_id.toString());
+            const targetVariantIds = (targetItemDetails?.variations ?? []).map((v) => variantIdentity(v, targetItemDetails?.family_id));
             const everyVariantValid = targetVariantIds.every((id) => {
                 const m = mappings.find((x) => x.targetVariantId === id);
                 if (!m) return false;
@@ -405,7 +413,7 @@ export const RuleEditorPage: React.FC = () => {
                 }
                 const targetVars = targetDetails?.variations ?? [];
                 const fullMappings: VariantMapping[] = targetVars.map(targetVar => ({
-                    targetVariantId: targetVar.user_product_id.toString(),
+                    targetVariantId: variantIdentity(targetVar, targetDetails.family_id),
                     targetSku: targetVar.sku || '',
                     strategy: 'EXPLICIT' as const,
                     sourceMatches: []
@@ -421,7 +429,7 @@ export const RuleEditorPage: React.FC = () => {
                     setTargetItemDetails(detailsForValidation);
                 }
                 const targetVariantIds = new Set(
-                    (detailsForValidation?.variations ?? []).map(v => v.user_product_id.toString())
+                    (detailsForValidation?.variations ?? []).map(v => variantIdentity(v, detailsForValidation?.family_id))
                 );
                 const validMappingIds = new Set(
                     mappingsToSave.filter(m => {
@@ -437,6 +445,11 @@ export const RuleEditorPage: React.FC = () => {
                 }
             }
 
+            const sourceIdentity = components.map((c) => ({
+                selectedId: c.sourceItem.id,
+                persistedSourceItemId: c.persistedSourceItemId,
+            }));
+
             // Build payload: backend expects packQuantity, strategy, matchSize, sourceMatches
             const payloadMappings = mappingsToSave.map(m => ({
                 targetVariantId: m.targetVariantId,
@@ -445,7 +458,7 @@ export const RuleEditorPage: React.FC = () => {
                 strategy: m.strategy,
                 matchSize: m.matchSize ?? undefined,
                 sourceMatches: m.sourceMatches.map((sm): RuleSourceMatchPayload => ({
-                    sourceItemId: sm.sourceItemId,
+                    sourceItemId: resolveSourceItemId(sourceIdentity, sm.sourceItemId),
                     sourceVariantId: sm.sourceVariantId.startsWith(GROUP_OPTION_PREFIX) ? null : sm.sourceVariantId,
                     sourceSku: sm.sourceSku,
                     quantity: sm.quantity
@@ -454,7 +467,7 @@ export const RuleEditorPage: React.FC = () => {
 
             const targetSku = targetItem.variations?.[0]?.sku ?? targetItem.id ?? '';
             const payloadComponents: RuleComponent[] = ruleType === 'FULL' ? [] : components.map((c) => ({
-                sourceItemId: c.sourceItem.id,
+                sourceItemId: c.persistedSourceItemId ?? c.sourceItem.id,
                 quantity: c.quantity,
             }));
             const derivedDefaultPackQuantity =
@@ -462,7 +475,7 @@ export const RuleEditorPage: React.FC = () => {
             const hasMissingSku = ruleType === 'FULL' && skuValidationResults?.some(r => !r.exists);
 
             const rule: StockRule = {
-                targetItemId: targetItem.id,
+                targetItemId: savedTargetItemId(lockedTargetItemId, targetItem.id),
                 targetTitle: targetItem.title ?? '',
                 targetThumbnail: targetItem.thumbnail ?? undefined,
                 targetSku,
@@ -630,7 +643,7 @@ export const RuleEditorPage: React.FC = () => {
                         </TableHead>
                         <TableBody>
                             {targetItemDetails?.variations.map((targetVar) => {
-                                const targetVarId = targetVar.user_product_id.toString();
+                                const targetVarId = variantIdentity(targetVar, targetItemDetails?.family_id);
                                 const mapping = mappings.find((m) => m.targetVariantId === targetVarId);
                                 return (
                                     <RuleVariantRow
